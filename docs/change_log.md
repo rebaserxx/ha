@@ -37,6 +37,100 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Fix Tado gas submission to use cumulative register value
+
+Summary:
+- Reworked the Tado gas meter automation so it submits a derived cumulative meter register value, not raw daily gas usage.
+
+Files changed:
+- /homeassistant/automations.yaml
+- /homeassistant/configuration.yaml
+- snapshots/homeassistant/automations.yaml
+- snapshots/homeassistant/configuration.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Updated automation:
+  - `tado_gas_meter_reading_daily_from_octopus`
+- Previous behavior:
+  - Sent `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3` directly to Tado.
+  - This is daily usage and not a true meter register.
+- New behavior:
+  - Adds daily usage to a stored helper register and submits the resulting cumulative reading.
+  - Uses current Tado service schema for HA `2026.2.3`:
+    - `tado.add_meter_reading` with `config_entry` + `reading`
+    - removed unsupported keys `utility` and `date` (error seen: `extra keys not allowed @ data['utility']`)
+  - Helper entities:
+    - `input_number.tado_gas_meter_register_m3` (initial `26512`)
+    - `input_datetime.tado_gas_meter_last_submission_date` (initial `2026-02-21`)
+  - Includes idempotency guard so the same day is not submitted twice.
+  - Tado `reading` is submitted as an integer (no decimals).
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Current Octopus gas entities do not expose an absolute meter register entity in this HA instance.
+
+Rollback:
+- Revert `tado_gas_meter_reading_daily_from_octopus` to direct sensor posting and remove helper definitions from `/homeassistant/configuration.yaml`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
+## 2026-02-22 - Add daily Octopus-to-Tado gas meter submission
+
+Summary:
+- Added a daily automation that submits gas meter readings to Tado using the Octopus Energy `previous_accumulative_consumption_m3` sensor.
+
+Files changed:
+- /homeassistant/automations.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added automation ID:
+  - `tado_gas_meter_reading_daily_from_octopus`
+- Trigger:
+  - Daily at `16:00:00`
+- Conditions:
+  - Source sensor must not be unknown/unavailable.
+  - Source sensor must parse as a non-negative number.
+- Action:
+  - `tado.add_meter_reading`
+  - `utility: gas`
+  - `reading` from:
+    - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3`
+  - `date` set to yesterday (`YYYY-MM-DD`) to match Octopus `previous_*` data semantics.
+- Mode:
+  - `single`
+
+Validation:
+- [ ] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Live server registry confirms source sensor exists and provides numeric `m3` values.
+
+Rollback:
+- Remove automation `tado_gas_meter_reading_daily_from_octopus` from `/homeassistant/automations.yaml` and reload automations.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Add hot water to pump follow automation (1 hour run)
 
 Summary:

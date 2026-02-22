@@ -9,3 +9,20 @@ frontend:
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
+
+input_number:
+  tado_gas_meter_register_m3:
+    name: Tado Gas Meter Register m3
+    min: 0
+    max: 999999
+    step: 0.001
+    mode: box
+    unit_of_measurement: m3
+    initial: 26512
+
+input_datetime:
+  tado_gas_meter_last_submission_date:
+    name: Tado Gas Meter Last Submission Date
+    has_date: true
+    has_time: false
+    initial: "2026-02-21"

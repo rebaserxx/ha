@@ -14,6 +14,8 @@ Last verified on 2026-02-22.
 - `automation: !include automations.yaml`
 - `script: !include scripts.yaml`
 - `scene: !include scenes.yaml`
+- `input_number:` (`tado_gas_meter_register_m3`)
+- `input_datetime:` (`tado_gas_meter_last_submission_date`)
 
 ## Config Files and Ownership
 - `/config/configuration.yaml`
@@ -24,6 +26,8 @@ Last verified on 2026-02-22.
   - Contains reusable light scripts and wrappers.
 - `/config/scenes.yaml`
   - Present, currently empty.
+- `/config/configuration.yaml`
+  - Also defines helper entities used by the Tado gas meter automation.
 
 ## Custom Integrations Installed (Live Server)
 Verified on 2026-02-22 from `/homeassistant/custom_components`:
@@ -66,6 +70,7 @@ Policy reference:
 - `lighting_front_porch_on_0620_presunrise`
 - `lighting_front_porch_off_at_sunrise`
 - `hot_water_pump_follow_tado_on_for_1h`
+- `tado_gas_meter_reading_daily_from_octopus`
 
 ## Current Script Inventory
 - `lighting_apply_profile_core`
@@ -109,6 +114,26 @@ Use these exact IDs when targeting by area.
 
 Tracking guidance:
 - Treat this list as operational debt; keep it current when issues are resolved or newly observed.
+
+## Tado Gas Meter Reading Sync
+- Automation: `tado_gas_meter_reading_daily_from_octopus`
+- Schedule: daily at `16:00`
+- Source sensor:
+  - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3`
+- Tado action:
+  - `tado.add_meter_reading`
+  - `config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E`
+  - `reading: <derived cumulative register m3 value, integer only>`
+- Helpers:
+  - `input_number.tado_gas_meter_register_m3` (running cumulative register value)
+  - `input_datetime.tado_gas_meter_last_submission_date` (idempotency guard)
+
+Operational intent:
+- Octopus sensor provides daily gas usage, not an absolute meter register.
+- Automation derives a meter-style register by adding daily usage to the stored helper value.
+- Tado submission is sent as an integer (no decimal places).
+- Tado service schema in HA `2026.2.3` expects `config_entry` and `reading` (not `utility`/`date`).
+- Internal day tracking uses yesterday so submission cadence aligns with the `previous_*` Octopus data series.
 
 ## Change Control Notes
 When requesting changes, specify:

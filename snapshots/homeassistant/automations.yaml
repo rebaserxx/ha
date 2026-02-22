@@ -277,3 +277,44 @@
       target:
         entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
   mode: restart
+
+- id: tado_gas_meter_reading_daily_from_octopus
+  alias: Tado - Submit Daily Gas Meter Reading From Octopus
+  description: Submit a derived cumulative gas meter register to Tado daily using Octopus previous daily gas consumption (m3).
+  triggers:
+    - trigger: time
+      at: "16:00:00"
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ states('sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3')
+           not in ['unknown', 'unavailable', 'none', 'None', ''] }}
+    - condition: template
+      value_template: >-
+        {{ states('sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3') | float(-1) >= 0 }}
+    - condition: template
+      value_template: >-
+        {{ states('input_datetime.tado_gas_meter_last_submission_date')
+           != ((today_at('00:00') - timedelta(days=1)).date() | string) }}
+  actions:
+    - variables:
+        yesterday_date: "{{ ((today_at('00:00') - timedelta(days=1)).date() | string) }}"
+        daily_usage_m3: "{{ states('sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3') | float(0) }}"
+        previous_register_m3: "{{ states('input_number.tado_gas_meter_register_m3') | float(0) }}"
+        new_register_m3: "{{ (previous_register_m3 + daily_usage_m3) | round(3) }}"
+        tado_register_m3: "{{ new_register_m3 | int(0) }}"
+    - action: tado.add_meter_reading
+      data:
+        config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E
+        reading: "{{ tado_register_m3 }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.tado_gas_meter_register_m3
+      data:
+        value: "{{ new_register_m3 }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.tado_gas_meter_last_submission_date
+      data:
+        date: "{{ yesterday_date }}"
+  mode: single

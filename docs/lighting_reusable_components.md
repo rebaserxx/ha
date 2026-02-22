@@ -114,6 +114,9 @@ Lounge is not in `script.lighting_common_areas`; it is separately targeted only 
     - `profile: day`
     - `transition: 2`
 
+Name note:
+- Alias intentionally uses `Mon-Thu` wording for accuracy (it does not run on Friday).
+
 ### Daily Seasonal Post-Sunrise Off
 - ID: `lighting_all_lights_off_after_sunrise_seasonal`
 - Trigger: sunrise
@@ -127,6 +130,44 @@ Lounge is not in `script.lighting_common_areas`; it is separately targeted only 
   - call `light.turn_off` targeting `entity_id: all` with `transition: 2`
 - Offsets are centralized in script defaults; automation passes direction only.
 - Mode: `restart` (manual re-runs replace any in-progress delayed run).
+
+### Late Evening Common + Lounge Dim (Week Split)
+- IDs:
+  - `lighting_common_lounge_dim_2215_sun_thu`
+  - `lighting_common_lounge_dim_2330_fri_sat`
+- Behavior:
+  - Sunday-Thursday at `22:15`: set common areas + Lounge to `brightness_pct: 15`
+  - Friday-Saturday at `23:30`: set common areas + Lounge to `brightness_pct: 15`
+- Target areas:
+  - common set (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
+  - plus Lounge (`living_room`)
+
+### Late Evening Common + Lounge Off (Week Split)
+- IDs:
+  - `lighting_common_lounge_off_2300_sun_thu`
+  - `lighting_common_lounge_off_2359_fri_sat`
+- Behavior:
+  - Sunday-Thursday at `23:00`: turn off common areas + Lounge
+  - Friday-Saturday at `23:59`: turn off common areas + Lounge
+- Target areas:
+  - common set (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
+  - plus Lounge (`living_room`)
+
+### Front Porch Evening/Night Schedule
+- IDs:
+  - `lighting_front_porch_on_at_sunset`
+  - `lighting_front_porch_off_2300`
+- Behavior:
+  - At sunset: turn on front porch lights (`script.lighting_outside`, `profile: evening`)
+  - At `23:00`: turn off front porch lights
+
+### Front Porch Early Morning Schedule
+- IDs:
+  - `lighting_front_porch_on_0620_presunrise`
+  - `lighting_front_porch_off_at_sunrise`
+- Behavior:
+  - At `06:20`: turn on front porch lights only if before sunrise
+  - At sunrise: turn off front porch lights
 
 ## Change Guide
 

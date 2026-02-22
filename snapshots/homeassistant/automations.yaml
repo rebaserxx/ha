@@ -44,7 +44,7 @@
   mode: single
 
 - id: lighting_common_weekday_morning_0620_presunrise
-  alias: Lighting - Common Areas On 06:20 Weekdays Pre-Sunrise
+  alias: Lighting - Common Areas On 06:20 Mon-Thu Pre-Sunrise
   description: Turn on common-area lights at 06:20 Monday-Thursday only if sunrise has not happened yet.
   triggers:
     - trigger: time
@@ -83,3 +83,175 @@
       data:
         transition: 2
   mode: restart
+
+- id: lighting_common_lounge_dim_2215_sun_thu
+  alias: Lighting - Common + Lounge Dim 22:15 Sun-Thu
+  description: Dim common-area and Lounge lights to 15% at 22:15 Sunday-Thursday.
+  triggers:
+    - trigger: time
+      at: "22:15:00"
+  conditions:
+    - condition: time
+      weekday:
+        - sun
+        - mon
+        - tue
+        - wed
+        - thu
+  actions:
+    - action: light.turn_on
+      target:
+        area_id:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+          - living_room
+      data:
+        brightness_pct: 15
+        transition: 4
+  mode: single
+
+- id: lighting_common_lounge_dim_2330_fri_sat
+  alias: Lighting - Common + Lounge Dim 23:30 Fri-Sat
+  description: Dim common-area and Lounge lights to 15% at 23:30 Friday-Saturday.
+  triggers:
+    - trigger: time
+      at: "23:30:00"
+  conditions:
+    - condition: time
+      weekday:
+        - fri
+        - sat
+  actions:
+    - action: light.turn_on
+      target:
+        area_id:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+          - living_room
+      data:
+        brightness_pct: 15
+        transition: 4
+  mode: single
+
+- id: lighting_common_lounge_off_2300_sun_thu
+  alias: Lighting - Common + Lounge Off 23:00 Sun-Thu
+  description: Turn off common-area and Lounge lights at 23:00 Sunday-Thursday.
+  triggers:
+    - trigger: time
+      at: "23:00:00"
+  conditions:
+    - condition: time
+      weekday:
+        - sun
+        - mon
+        - tue
+        - wed
+        - thu
+  actions:
+    - action: light.turn_off
+      target:
+        area_id:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+          - living_room
+      data:
+        transition: 3
+  mode: single
+
+- id: lighting_common_lounge_off_2359_fri_sat
+  alias: Lighting - Common + Lounge Off 23:59 Fri-Sat
+  description: Turn off common-area and Lounge lights at 23:59 Friday-Saturday.
+  triggers:
+    - trigger: time
+      at: "23:59:00"
+  conditions:
+    - condition: time
+      weekday:
+        - fri
+        - sat
+  actions:
+    - action: light.turn_off
+      target:
+        area_id:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+          - living_room
+      data:
+        transition: 3
+  mode: single
+
+- id: lighting_front_porch_on_at_sunset
+  alias: Lighting - Front Porch On At Sunset
+  description: Turn on front porch lights at sunset every day.
+  triggers:
+    - trigger: sun
+      event: sunset
+  conditions: []
+  actions:
+    - action: script.lighting_outside
+      data:
+        action: "on"
+        profile: "evening"
+        transition: 2
+  mode: single
+
+- id: lighting_front_porch_off_2300
+  alias: Lighting - Front Porch Off 23:00
+  description: Turn off front porch lights at 23:00 every day.
+  triggers:
+    - trigger: time
+      at: "23:00:00"
+  conditions: []
+  actions:
+    - action: script.lighting_outside
+      data:
+        action: "off"
+        transition: 2
+  mode: single
+
+- id: lighting_front_porch_on_0620_presunrise
+  alias: Lighting - Front Porch On 06:20 Pre-Sunrise
+  description: Turn on front porch lights at 06:20 only if sunrise has not happened yet.
+  triggers:
+    - trigger: time
+      at: "06:20:00"
+  conditions:
+    - condition: sun
+      before: sunrise
+  actions:
+    - action: script.lighting_outside
+      data:
+        action: "on"
+        profile: "day"
+        transition: 2
+  mode: single
+
+- id: lighting_front_porch_off_at_sunrise
+  alias: Lighting - Front Porch Off At Sunrise
+  description: Turn off front porch lights at sunrise every day.
+  triggers:
+    - trigger: sun
+      event: sunrise
+  conditions: []
+  actions:
+    - action: script.lighting_outside
+      data:
+        action: "off"
+        transition: 2
+  mode: single

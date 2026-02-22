@@ -37,6 +37,50 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Add front porch sunset/morning schedules and naming cleanup
+
+Summary:
+- Added front porch automations for sunset-on, 23:00-off, 06:20 pre-sunrise-on, and sunrise-off.
+- Reviewed automation naming clarity and adjusted one alias to better match behavior scope.
+
+Files changed:
+- /homeassistant/automations.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Added:
+  - `lighting_front_porch_on_at_sunset`
+  - `lighting_front_porch_off_2300`
+  - `lighting_front_porch_on_0620_presunrise`
+  - `lighting_front_porch_off_at_sunrise`
+- Front porch actions use `script.lighting_outside` for consistent outside-light control.
+- Naming clarity audit:
+  - Updated alias for `lighting_common_weekday_morning_0620_presunrise` from:
+    - `Lighting - Common Areas On 06:20 Weekdays Pre-Sunrise`
+    - to `Lighting - Common Areas On 06:20 Mon-Thu Pre-Sunrise`
+  - Other automation aliases were reviewed and retained as sufficiently descriptive.
+
+Validation:
+- [x] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Server-side config check completed successfully after applying updated `automations.yaml`.
+
+Rollback:
+- Restore previous `/homeassistant/automations.yaml` from backup or prior git/snapshot copy.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Reusable lighting framework
 
 Summary:
@@ -65,6 +109,48 @@ Validation:
 
 Rollback:
 - Restore previous versions of `/config/scripts.yaml` and `/config/automations.yaml`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
+## 2026-02-22 - Add late-evening common+lounge dim/off schedules
+
+Summary:
+- Added requested late-evening dim and off schedules for common areas plus Lounge with separate weekday/weekend times.
+- Confirmed sunset-on seasonal automation already included Lounge (`living_room`), so no extra target change was needed there.
+
+Files changed:
+- /homeassistant/automations.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Added dim automations:
+  - `lighting_common_lounge_dim_2215_sun_thu` -> 22:15 on Sun-Thu to `brightness_pct: 15`
+  - `lighting_common_lounge_dim_2330_fri_sat` -> 23:30 on Fri-Sat to `brightness_pct: 15`
+- Added off automations:
+  - `lighting_common_lounge_off_2300_sun_thu` -> 23:00 on Sun-Thu
+  - `lighting_common_lounge_off_2359_fri_sat` -> 23:59 on Fri-Sat
+- All new automations target:
+  - Common areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
+  - Plus Lounge (`living_room`)
+
+Validation:
+- [x] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Server-side config check completed successfully after applying updated `automations.yaml`.
+
+Rollback:
+- Restore previous `/homeassistant/automations.yaml` from backup or prior git/snapshot copy.
 
 Requested by:
 - Project user

@@ -57,6 +57,14 @@ Policy reference:
 - `lighting_overnight_shutdown_0200`
 - `lighting_common_weekday_morning_0620_presunrise`
 - `lighting_all_lights_off_after_sunrise_seasonal`
+- `lighting_common_lounge_dim_2215_sun_thu`
+- `lighting_common_lounge_dim_2330_fri_sat`
+- `lighting_common_lounge_off_2300_sun_thu`
+- `lighting_common_lounge_off_2359_fri_sat`
+- `lighting_front_porch_on_at_sunset`
+- `lighting_front_porch_off_2300`
+- `lighting_front_porch_on_0620_presunrise`
+- `lighting_front_porch_off_at_sunrise`
 
 ## Current Script Inventory
 - `lighting_apply_profile_core`

@@ -37,6 +37,50 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Add hot water to pump follow automation (1 hour run)
+
+Summary:
+- Added automation to run the Meross water pump for one hour whenever Tado hot water is turned on from an off state.
+
+Files changed:
+- /homeassistant/automations.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added automation ID:
+  - `hot_water_pump_follow_tado_on_for_1h`
+- Trigger:
+  - `water_heater.hot_water` state change event
+  - guard condition allows only transitions from not-on -> on-like:
+    - from state not in `auto`, `heat`, `on`
+    - to state in `auto`, `heat`, `on`
+- Actions:
+  - `switch.turn_on` -> `switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet` (Water Pump)
+  - delay `01:00:00`
+  - `switch.turn_off` -> same entity
+- Mode:
+  - `restart` (if retriggered while running, the 1-hour window restarts from the latest trigger)
+
+Validation:
+- [x] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Server-side config check completed successfully after automation update.
+
+Rollback:
+- Restore previous `/homeassistant/automations.yaml` from backup or prior git/snapshot copy.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Add front porch sunset/morning schedules and naming cleanup
 
 Summary:

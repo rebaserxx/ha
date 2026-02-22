@@ -65,6 +65,7 @@ Policy reference:
 - `lighting_front_porch_off_2300`
 - `lighting_front_porch_on_0620_presunrise`
 - `lighting_front_porch_off_at_sunrise`
+- `hot_water_pump_follow_tado_on_for_1h`
 
 ## Current Script Inventory
 - `lighting_apply_profile_core`

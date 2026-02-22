@@ -74,6 +74,59 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Migrate Ren area ID typo to `ren_s_bedroom`
+
+Summary:
+- Migrated Ren's Bedroom internal `area_id` from typo `ren_s_bedrrom` to `ren_s_bedroom` while keeping visible name `Ren's Bedroom`.
+
+Files changed:
+- /config/scripts.yaml
+- /config/.storage/core.area_registry
+- /config/.storage/core.device_registry
+- docs/change_log.md
+
+Details:
+- Created full pre-change backup:
+  - slug: `6aa713ce`
+  - name: `pre-ren-areaid-migration-2026-02-22`
+- Applied ID migration to active files from `ren_s_bedrrom` to `ren_s_bedroom` in:
+  - `/config/scripts.yaml`
+  - `/config/.storage/core.area_registry`
+  - `/config/.storage/core.device_registry`
+- Confirmed on follow-up that `core.device_registry` still contained old IDs, then performed a second corrective pass:
+  - temporarily set `ha core options --watchdog=false`
+  - stopped core, patched `/config/.storage/core.device_registry`, and restarted core
+  - restored `ha core options --watchdog=true`
+- Confirmed area registry now reports:
+  - `id: "ren_s_bedroom"`
+  - `name: "Ren's Bedroom"`
+- Created file-level rollback copies:
+  - `/config/.storage/core.area_registry.bak.1771765942`
+  - `/config/.storage/core.device_registry.bak.1771765942`
+  - `/config/scripts.yaml.bak.1771765942`
+  - `/config/.storage/core.device_registry.bak.1771766500`
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - `ha core check --raw-json` returned `{\"result\":\"ok\",\"data\":{}}`.
+  - `ha core stats --raw-json` returned `{\"result\":\"ok\", ...}` after restart.
+  - No remaining `ren_s_bedrrom` references found in active text config/registry files.
+
+Rollback:
+- Option 1 (preferred): restore full backup `6aa713ce`.
+- Option 2: stop core, restore `.bak.1771765942` and/or `.bak.1771766500` files over current files, then start core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Fix script field type errors in lighting core
 
 Summary:

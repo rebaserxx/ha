@@ -1,0 +1,240 @@
+lighting_apply_profile_core:
+  alias: Lighting Apply Profile Core
+  description: Apply on/off actions with reusable day/evening/night presets to one or more areas.
+  mode: restart
+  fields:
+    target_areas:
+      description: Area IDs to target.
+      example: "living_room,dining_room"
+    profile:
+      description: Lighting profile to apply when action is on.
+      example: "evening"
+      selector:
+        select:
+          options:
+            - "day"
+            - "evening"
+            - "night"
+    action:
+      description: Turn lights on with profile or turn lights off.
+      example: "on"
+      selector:
+        select:
+          options:
+            - "on"
+            - "off"
+    transition:
+      description: Transition time in seconds.
+      example: 2
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          mode: box
+  sequence:
+    - variables:
+        selected_areas: "{{ target_areas | default([], true) }}"
+        selected_profile: >-
+          {% set p = (profile | default('evening') | string | lower) %}
+          {{ p if p in ['day', 'evening', 'night'] else 'evening' }}
+        selected_action: "{{ 'off' if (action | default('on') | string | lower) in ['off', 'false', '0'] else 'on' }}"
+        selected_transition: "{{ transition | default(2) | int(2) }}"
+    - condition: template
+      value_template: "{{ selected_areas | count > 0 }}"
+    - repeat:
+        for_each: "{{ selected_areas }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ selected_action == 'off' }}"
+                sequence:
+                  - service: light.turn_off
+                    target:
+                      area_id: "{{ repeat.item }}"
+                    data:
+                      transition: "{{ selected_transition | int(2) }}"
+              - conditions:
+                  - condition: template
+                    value_template: "{{ selected_action == 'on' and selected_profile == 'day' }}"
+                sequence:
+                  - service: light.turn_on
+                    target:
+                      area_id: "{{ repeat.item }}"
+                    data:
+                      brightness_pct: 100
+                      color_temp_kelvin: 4000
+                      transition: "{{ selected_transition | int(2) }}"
+              - conditions:
+                  - condition: template
+                    value_template: "{{ selected_action == 'on' and selected_profile == 'night' }}"
+                sequence:
+                  - service: light.turn_on
+                    target:
+                      area_id: "{{ repeat.item }}"
+                    data:
+                      brightness_pct: 10
+                      color_temp_kelvin: 2000
+                      transition: "{{ selected_transition | int(2) }}"
+            default:
+              - service: light.turn_on
+                target:
+                  area_id: "{{ repeat.item }}"
+                data:
+                  brightness_pct: 45
+                  color_temp_kelvin: 2700
+                  transition: "{{ selected_transition | int(2) }}"
+
+lighting_common_areas:
+  alias: Lighting Common Areas
+  description: Wrapper for internal common-area lighting (excluding Lounge).
+  mode: restart
+  fields:
+    profile:
+      description: day, evening, or night.
+      example: "evening"
+    action:
+      description: on or off.
+      example: "on"
+    transition:
+      description: Transition time in seconds.
+      example: 2
+  sequence:
+    - service: script.lighting_apply_profile_core
+      data:
+        target_areas:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+        profile: "{{ profile | default('evening') }}"
+        action: "{{ action | default('on') }}"
+        transition: "{{ transition | default(2) }}"
+
+lighting_bedrooms:
+  alias: Lighting Bedrooms
+  description: Wrapper for bedrooms excluding Guest Bedroom.
+  mode: restart
+  fields:
+    profile:
+      description: day, evening, or night.
+      example: "night"
+    action:
+      description: on or off.
+      example: "on"
+    transition:
+      description: Transition time in seconds.
+      example: 2
+  sequence:
+    - service: script.lighting_apply_profile_core
+      data:
+        target_areas:
+          - bedroom
+          - ren_s_bedroom
+          - nathaniel_s_bedroom
+        profile: "{{ profile | default('evening') }}"
+        action: "{{ action | default('on') }}"
+        transition: "{{ transition | default(2) }}"
+
+lighting_outside:
+  alias: Lighting Outside
+  description: Wrapper for outdoor lighting (front porch only).
+  mode: restart
+  fields:
+    profile:
+      description: day, evening, or night.
+      example: "evening"
+    action:
+      description: on or off.
+      example: "on"
+    transition:
+      description: Transition time in seconds.
+      example: 2
+  sequence:
+    - service: script.lighting_apply_profile_core
+      data:
+        target_areas:
+          - front_porch
+        profile: "{{ profile | default('evening') }}"
+        action: "{{ action | default('on') }}"
+        transition: "{{ transition | default(2) }}"
+
+lighting_wait_seasonal_offset:
+  alias: Lighting Wait Seasonal Offset
+  description: Apply seasonal offset timing. Use plus for after-event waits and minus for before-event offsets via an anchor trigger.
+  mode: parallel
+  fields:
+    offset_direction:
+      description: plus adds time after the solar event; minus uses anchor_minutes to run before the event.
+      example: "plus"
+      selector:
+        select:
+          options:
+            - "plus"
+            - "minus"
+    anchor_minutes:
+      description: Required for minus mode. Trigger should be this many minutes before event.
+      example: 60
+      selector:
+        number:
+          min: 0
+          max: 180
+          step: 1
+          mode: box
+    summer_minutes:
+      description: Seasonal offset for June-August.
+      example: 15
+      selector:
+        number:
+          min: 0
+          max: 180
+          step: 1
+          mode: box
+    shoulder_minutes:
+      description: Seasonal offset for March-May and September-November.
+      example: 30
+      selector:
+        number:
+          min: 0
+          max: 180
+          step: 1
+          mode: box
+    winter_minutes:
+      description: Seasonal offset for December-February.
+      example: 60
+      selector:
+        number:
+          min: 0
+          max: 180
+          step: 1
+          mode: box
+  sequence:
+    - variables:
+        month: "{{ now().month }}"
+        direction: "{{ offset_direction | default('plus') | string | lower }}"
+        anchor: "{{ anchor_minutes | default(60) | int(60) }}"
+        summer: "{{ summer_minutes | default(15) | int(15) }}"
+        shoulder: "{{ shoulder_minutes | default(30) | int(30) }}"
+        winter: "{{ winter_minutes | default(60) | int(60) }}"
+        season_minutes: >-
+          {% if month in [6, 7, 8] %}
+            {{ summer | int }}
+          {% elif month in [3, 4, 5, 9, 10, 11] %}
+            {{ shoulder | int }}
+          {% else %}
+            {{ winter | int }}
+          {% endif %}
+        wait_minutes: >-
+          {% if direction == 'minus' %}
+            {{ [anchor | int - season_minutes | int, 0] | max }}
+          {% else %}
+            {{ season_minutes | int }}
+          {% endif %}
+        wait_seconds: "{{ wait_minutes | int * 60 }}"
+        wait_hms: >-
+          {% set s = wait_seconds | int %}
+          {{ '%02d:%02d:%02d' | format(s // 3600, (s % 3600) // 60, s % 60) }}
+    - delay: "{{ wait_hms }}"

@@ -1,0 +1,85 @@
+- id: lighting_common_evening_sunset_on_seasonal
+  alias: Lighting - Common Areas On Before Sunset (Seasonal)
+  description: Turn on common-area lights plus Lounge before sunset using seasonal offsets from a common script.
+  triggers:
+    - trigger: sun
+      event: sunset
+      offset: "-01:00:00"
+  conditions: []
+  actions:
+    - action: script.lighting_wait_seasonal_offset
+      data:
+        offset_direction: "minus"
+    - action: script.lighting_apply_profile_core
+      data:
+        target_areas:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+          - living_room
+        action: "on"
+        profile: "evening"
+        transition: 3
+  mode: single
+
+- id: lighting_overnight_shutdown_0200
+  alias: Lighting - Overnight Shutdown 02:00
+  description: Turn off common-area and outside lights at 2am while leaving bedrooms alone.
+  triggers:
+    - trigger: time
+      at: "02:00:00"
+  conditions: []
+  actions:
+    - action: script.lighting_common_areas
+      data:
+        action: "off"
+        transition: 2
+    - action: script.lighting_outside
+      data:
+        action: "off"
+        transition: 2
+  mode: single
+
+- id: lighting_common_weekday_morning_0620_presunrise
+  alias: Lighting - Common Areas On 06:20 Weekdays Pre-Sunrise
+  description: Turn on common-area lights at 06:20 Monday-Thursday only if sunrise has not happened yet.
+  triggers:
+    - trigger: time
+      at: "06:20:00"
+  conditions:
+    - condition: time
+      weekday:
+        - mon
+        - tue
+        - wed
+        - thu
+    - condition: sun
+      before: sunrise
+  actions:
+    - action: script.lighting_common_areas
+      data:
+        action: "on"
+        profile: "day"
+        transition: 2
+  mode: single
+
+- id: lighting_all_lights_off_after_sunrise_seasonal
+  alias: Lighting - All Lights Off After Sunrise (Seasonal Daily)
+  description: Turn off all lights after sunrise every day using seasonal offsets from a common script.
+  triggers:
+    - trigger: sun
+      event: sunrise
+  conditions: []
+  actions:
+    - action: script.lighting_wait_seasonal_offset
+      data:
+        offset_direction: "plus"
+    - action: light.turn_off
+      target:
+        entity_id: all
+      data:
+        transition: 2
+  mode: restart

@@ -60,7 +60,7 @@ All wrappers call `script.lighting_apply_profile_core` and only differ by fixed 
 
 ### Bedrooms (`script.lighting_bedrooms`)
 - `bedroom` (Main Bedroom)
-- `ren_s_bedrrom` (Ren's Bedroom)
+- `ren_s_bedroom` (Ren's Bedroom)
 - `nathaniel_s_bedroom` (Nathaniel's Bedroom)
 
 Excluded by design:

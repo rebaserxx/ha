@@ -25,6 +25,33 @@ Last verified on 2026-02-22.
 - `/config/scenes.yaml`
   - Present, currently empty.
 
+## Custom Integrations Installed (Live Server)
+Verified on 2026-02-22 from `/homeassistant/custom_components`:
+- `hacs`
+- `meross_lan`
+- `octopus_energy`
+
+Operational note:
+- Custom integrations are expected and currently in use; startup warnings about "not tested by Home Assistant" are normal for these components.
+
+## Repairs Snapshot (Live Server)
+Verified on 2026-02-22 from `/homeassistant/.storage/repairs.issue_registry`:
+- `tado` -> `water_heater_fallback_Hot Water` (dismissed for `2026.2.3`)
+- `octopus_energy` -> `saving_session_binary_sensor_deprecated` (dismissed for `2026.2.3`)
+- `octopus_energy` -> `greenness_forecast_session_binary_sensor_deprecated` (dismissed for `2026.2.3`)
+- `octopus_energy` -> `free_electricity_session_binary_sensor_deprecated` (dismissed for `2026.2.3`)
+
+## Backup And Rollback Artifacts On Server
+Current ad-hoc backup files observed on 2026-02-22:
+- `/homeassistant/scripts.yaml.bak.1771761051`
+- `/homeassistant/scripts.yaml.bak.1771765942`
+- `/homeassistant/.storage/core.area_registry.bak.1771765942`
+- `/homeassistant/.storage/core.device_registry.bak.1771765942`
+- `/homeassistant/.storage/core.device_registry.bak.1771766500`
+
+Policy reference:
+- See `docs/codex_change_playbook.md` backup lifecycle policy for retention and cleanup.
+
 ## Current Automation Inventory
 - `lighting_common_evening_sunset_on_seasonal`
 - `lighting_overnight_shutdown_0200`
@@ -51,7 +78,7 @@ Use these exact IDs when targeting by area.
 - `toilet` -> Toilet
 - `side_hall` -> Side Hall
 - `front_porch` -> Front Porch
-- `ren_s_bedrrom` -> Ren's Bedroom
+- `ren_s_bedroom` -> Ren's Bedroom
 - `guest_bedroom` -> Guest Bedroom
 - `david_s_office` -> David's Office
 - `landing` -> Landing
@@ -65,6 +92,14 @@ Use these exact IDs when targeting by area.
 3. Use `target.area_id` instead of hardcoded light entity lists unless explicit pinning is required.
 4. Validate with `ha core check` after YAML edits.
 5. Reload scripts/automations or restart HA core to apply.
+
+## Known Operational Issues (Observed 2026-02-22)
+- `pychromecast` socket disconnect errors for `LG webOS TV (192.168.1.55:8009)` recur in core logs.
+- `anglian_water` config flow raised `AttributeError: 'NoneType' object has no attribute 'get'` during account lookup.
+- `tuya` warning for invalid enum value `frost` on product id `lgibckbiszegmjlo`.
+
+Tracking guidance:
+- Treat this list as operational debt; keep it current when issues are resolved or newly observed.
 
 ## Change Control Notes
 When requesting changes, specify:

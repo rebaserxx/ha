@@ -1,0 +1,15 @@
+arch: amd64
+audio_input: null
+audio_output: null
+backups_exclude_database: false
+boot: true
+duplicate_log_file: false
+image: ghcr.io/home-assistant/qemux86-64-homeassistant
+ip_address: 172.30.32.1
+machine: qemux86-64
+port: 8123
+ssl: false
+update_available: false
+version: 2026.2.3
+version_latest: 2026.2.3
+watchdog: true

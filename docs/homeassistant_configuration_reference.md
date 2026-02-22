@@ -26,14 +26,17 @@ Last verified on 2026-02-22.
   - Present, currently empty.
 
 ## Current Automation Inventory
-- `lighting_common_evening_dusk_on`
+- `lighting_common_evening_sunset_on_seasonal`
 - `lighting_overnight_shutdown_0200`
+- `lighting_common_weekday_morning_0620_presunrise`
+- `lighting_all_lights_off_after_sunrise_seasonal`
 
 ## Current Script Inventory
 - `lighting_apply_profile_core`
 - `lighting_common_areas`
 - `lighting_bedrooms`
 - `lighting_outside`
+- `lighting_wait_seasonal_offset`
 
 ## Area ID Reference
 Use these exact IDs when targeting by area.

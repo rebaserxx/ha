@@ -11,6 +11,10 @@ Provide reusable lighting scripts that can be called from automations without re
 
 ## Script Architecture
 
+Important:
+- Automation YAML entries should include `id`.
+- Script entries in `scripts.yaml` must not include `id` (Home Assistant rejects it).
+
 ### 1) Core Script
 - Entity: `script.lighting_apply_profile_core`
 - Purpose: Generic reusable light action engine.
@@ -32,10 +36,22 @@ Behavior:
 
 All wrappers call `script.lighting_apply_profile_core` and only differ by fixed `target_areas`.
 
+### 3) Seasonal Offset Helper
+- `script.lighting_wait_seasonal_offset`
+- Purpose: reusable seasonal offset logic for sunrise/sunset automations.
+- Inputs:
+  - `offset_direction`:
+    - `plus`: add time after event (morning)
+    - `minus`: subtract time before event via an anchor trigger (evening)
+  - `anchor_minutes` (used for `minus`; current sunset anchor is 60)
+  - `summer_minutes` (Jun-Aug)
+  - `shoulder_minutes` (Mar-May, Sep-Nov)
+  - `winter_minutes` (Dec-Feb)
+
 ## Area Membership (Current)
 
 ### Common Areas (`script.lighting_common_areas`)
-- `living_room` (Lounge)
+- `attic_lounge` (Attic Lounge)
 - `dining_room` (Dining Room)
 - `kitchen` (Kitchen)
 - `hallway` (Hallway)
@@ -60,13 +76,21 @@ Excluded by design:
 
 ## Automations (Current)
 
-### Dusk Common Areas On
-- ID: `lighting_common_evening_dusk_on`
-- Trigger: sunset offset `-00:15:00`
-- Action: call `script.lighting_common_areas` with
+### Sunset Common Areas On (Seasonal)
+- ID: `lighting_common_evening_sunset_on_seasonal`
+- Trigger: sunset anchor at `-01:00:00`
+- Action: call `script.lighting_apply_profile_core` with combined target areas:
+  - Common areas (including `attic_lounge`)
+  - Plus separate Lounge target `living_room`
+- Profile/action:
   - `action: on`
   - `profile: evening`
   - `transition: 3`
+- Seasonal pre-sunset offsets are applied by `script.lighting_wait_seasonal_offset` with `offset_direction: minus`:
+  - Summer (Jun-Aug): 15 minutes before sunset
+  - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes before sunset
+  - Winter (Dec-Feb): 60 minutes before sunset
+- Offsets are centralized in script defaults; automation passes direction only.
 
 ### 02:00 Overnight Shutdown
 - ID: `lighting_overnight_shutdown_0200`
@@ -76,6 +100,32 @@ Excluded by design:
   - call `script.lighting_outside` with `action: off`
 
 Bedroom lights are intentionally not forced off.
+Lounge is not in `script.lighting_common_areas`; it is separately targeted only by the sunset-on automation.
+
+### 06:20 Weekday Pre-Sunrise On
+- ID: `lighting_common_weekday_morning_0620_presunrise`
+- Trigger: `06:20:00`
+- Conditions:
+  - weekday is Monday-Thursday
+  - time is before sunrise
+- Action:
+  - call `script.lighting_common_areas` with:
+    - `action: on`
+    - `profile: day`
+    - `transition: 2`
+
+### Daily Seasonal Post-Sunrise Off
+- ID: `lighting_all_lights_off_after_sunrise_seasonal`
+- Trigger: sunrise
+- Condition:
+  - none (runs every day)
+- Action:
+  - seasonal delay via `script.lighting_wait_seasonal_offset` with `offset_direction: plus`:
+    - Summer (Jun-Aug): 15 minutes
+    - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes
+    - Winter (Dec-Feb): 60 minutes
+  - call `light.turn_off` (all lights) with `transition: 2`
+- Offsets are centralized in script defaults; automation passes direction only.
 
 ## Change Guide
 
@@ -86,7 +136,7 @@ Bedroom lights are intentionally not forced off.
 - Add additional schedule -> add new automation that calls existing wrappers.
 
 ### Example requests to Codex
-- "Update `lighting_common_evening_dusk_on` to trigger at sunset with no offset."
+- "Update `lighting_common_evening_sunset_on_seasonal` seasonal delays."
 - "Add `attic_lounge` to common areas wrapper."
 - "Make `night` profile 5% brightness at 1800K."
 

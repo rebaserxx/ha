@@ -64,6 +64,11 @@ This document defines how Codex should communicate with Home Assistant in future
 - Show verification result.
 - Include next action only if needed.
 
+## Change Log Requirement
+- For any Home Assistant configuration change, append an entry to `docs/change_log.md`.
+- Include: date, summary, files changed, validation status, and rollback notes.
+- If no config change was made, explicitly state "no config change" in the session output.
+
 ## Quick Commands
 - Test MCP connectivity by calling date/time and live context.
 - Test API health:

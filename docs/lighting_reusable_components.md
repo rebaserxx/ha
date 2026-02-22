@@ -89,7 +89,7 @@ Excluded by design:
 - Seasonal pre-sunset offsets are applied by `script.lighting_wait_seasonal_offset` with `offset_direction: minus`:
   - Summer (Jun-Aug): 15 minutes before sunset
   - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes before sunset
-  - Winter (Dec-Feb): 60 minutes before sunset
+  - Winter (Dec-Feb): 45 minutes before sunset
 - Offsets are centralized in script defaults; automation passes direction only.
 
 ### 02:00 Overnight Shutdown
@@ -126,7 +126,7 @@ Name note:
   - seasonal delay via `script.lighting_wait_seasonal_offset` with `offset_direction: plus`:
     - Summer (Jun-Aug): 15 minutes
     - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes
-    - Winter (Dec-Feb): 60 minutes
+    - Winter (Dec-Feb): 45 minutes
   - call `light.turn_off` targeting `entity_id: all` with `transition: 2`
 - Offsets are centralized in script defaults; automation passes direction only.
 - Mode: `restart` (manual re-runs replace any in-progress delayed run).

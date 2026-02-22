@@ -37,6 +37,45 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Reduce winter seasonal offset default to 45 minutes
+
+Summary:
+- Updated the shared seasonal lighting helper so winter offset defaults use 45 minutes instead of 60 minutes.
+
+Files changed:
+- /homeassistant/scripts.yaml
+- snapshots/homeassistant/scripts.yaml
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Updated script:
+  - `lighting_wait_seasonal_offset`
+- Changed winter defaults:
+  - `winter_minutes` example: `60` -> `45`
+  - runtime default: `winter_minutes | default(45) | int(45)`
+- Effect:
+  - Sunset seasonal-minus automation now runs 15 minutes later in winter than before.
+  - Sunrise seasonal-plus off runs 15 minutes earlier in winter than before.
+
+Validation:
+- [ ] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - This change relies on central script defaults; no automation IDs needed modification.
+
+Rollback:
+- Restore `winter_minutes` script default from `45` back to `60` in `/homeassistant/scripts.yaml`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Fix Tado gas submission to use cumulative register value
 
 Summary:

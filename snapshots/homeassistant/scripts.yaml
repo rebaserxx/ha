@@ -204,7 +204,7 @@ lighting_wait_seasonal_offset:
           mode: box
     winter_minutes:
       description: Seasonal offset for December-February.
-      example: 60
+      example: 45
       selector:
         number:
           min: 0
@@ -218,7 +218,7 @@ lighting_wait_seasonal_offset:
         anchor: "{{ anchor_minutes | default(60) | int(60) }}"
         summer: "{{ summer_minutes | default(15) | int(15) }}"
         shoulder: "{{ shoulder_minutes | default(30) | int(30) }}"
-        winter: "{{ winter_minutes | default(60) | int(60) }}"
+        winter: "{{ winter_minutes | default(45) | int(45) }}"
         season_minutes: >-
           {% if month in [6, 7, 8] %}
             {{ summer | int }}

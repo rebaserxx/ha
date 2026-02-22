@@ -1,6 +1,6 @@
 - id: lighting_common_evening_sunset_on_seasonal
   alias: Lighting - Common Areas On Before Sunset (Seasonal)
-  description: Turn on common-area lights plus Lounge before sunset using seasonal offsets from a common script.
+  description: Turn on common-area lights plus Lounge before sunset using seasonal offsets, and include David's Office filament light.
   triggers:
     - trigger: sun
       event: sunset
@@ -22,6 +22,13 @@
           - living_room
         action: "on"
         profile: "evening"
+        transition: 3
+    - action: light.turn_on
+      target:
+        entity_id: light.office_filament
+      data:
+        brightness_pct: 80
+        color_temp_kelvin: 2700
         transition: 3
   mode: single
 

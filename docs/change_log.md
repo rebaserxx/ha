@@ -37,6 +37,43 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Include David's Office filament in sunset evening-on automation
+
+Summary:
+- Added David's Office filament light to the seasonal sunset evening-on routine.
+
+Files changed:
+- /homeassistant/automations.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Updated automation:
+  - `lighting_common_evening_sunset_on_seasonal`
+- Added explicit action after profile-based area activation:
+  - `light.turn_on` -> `light.office_filament`
+  - settings: `brightness_pct: 80`, `color_temp_kelvin: 2700`, `transition: 3`
+- Existing common-area + Lounge target behavior remains unchanged.
+
+Validation:
+- [ ] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Change is scoped only to the sunset evening-on automation.
+
+Rollback:
+- Remove the `light.office_filament` action block from `lighting_common_evening_sunset_on_seasonal`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Increase evening lighting profile brightness to 80%
 
 Summary:

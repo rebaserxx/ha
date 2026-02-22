@@ -82,6 +82,7 @@ Excluded by design:
 - Action: call `script.lighting_apply_profile_core` with combined target areas:
   - Common areas (including `attic_lounge`)
   - Plus separate Lounge target `living_room`
+  - Plus explicit entity `light.office_filament` (David's Office filament)
 - Profile/action:
   - `action: on`
   - `profile: evening`

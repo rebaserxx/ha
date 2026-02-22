@@ -124,8 +124,9 @@ Lounge is not in `script.lighting_common_areas`; it is separately targeted only 
     - Summer (Jun-Aug): 15 minutes
     - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes
     - Winter (Dec-Feb): 60 minutes
-  - call `light.turn_off` (all lights) with `transition: 2`
+  - call `light.turn_off` targeting `entity_id: all` with `transition: 2`
 - Offsets are centralized in script defaults; automation passes direction only.
+- Mode: `restart` (manual re-runs replace any in-progress delayed run).
 
 ## Change Guide
 

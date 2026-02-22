@@ -491,3 +491,40 @@ Requested by:
 
 Implemented by:
 - Codex
+
+---
+
+## 2026-02-22 - Fix all-lights sunrise automation target and rerun behavior
+
+Summary:
+- Fixed the post-sunrise all-lights automation so it can successfully turn off lights.
+- Changed mode to avoid "Already running" blocking during manual tests.
+
+Files changed:
+- /config/automations.yaml
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- In `lighting_all_lights_off_after_sunrise_seasonal`:
+  - changed `light.turn_off` call to include explicit target:
+    - `target.entity_id: all`
+  - changed automation `mode` from `single` to `restart`.
+- Root cause from HA log:
+  - `must contain at least one of entity_id, device_id, area_id, floor_id, label_id`
+
+Validation:
+- [x] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Config validation completed successfully after target and mode changes.
+
+Rollback:
+- Restore prior version of `/config/automations.yaml`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex

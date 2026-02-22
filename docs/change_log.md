@@ -37,6 +37,44 @@ Implemented by:
 
 ---
 
+## 2026-02-22 - Increase evening lighting profile brightness to 80%
+
+Summary:
+- Updated the shared evening lighting profile brightness from 45% to 80%.
+
+Files changed:
+- /homeassistant/scripts.yaml
+- snapshots/homeassistant/scripts.yaml
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Updated script:
+  - `lighting_apply_profile_core`
+- Profile default change:
+  - `evening` brightness `45` -> `80`
+  - color temperature unchanged at `2700K`
+- Impact:
+  - Any automation/script that uses `profile: evening` via the reusable lighting framework now sets lights to 80% by default.
+
+Validation:
+- [ ] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Change is centralized in one script; no automation ID changes required.
+
+Rollback:
+- Set `brightness_pct` for evening/default branch in `/homeassistant/scripts.yaml` back to `45`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Reduce winter seasonal offset default to 45 minutes
 
 Summary:

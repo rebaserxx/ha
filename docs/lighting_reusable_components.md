@@ -71,7 +71,7 @@ Excluded by design:
 
 ## Profile Defaults (Current)
 - `day`: `brightness_pct: 100`, `color_temp_kelvin: 4000`
-- `evening`: `brightness_pct: 45`, `color_temp_kelvin: 2700`
+- `evening`: `brightness_pct: 80`, `color_temp_kelvin: 2700`
 - `night`: `brightness_pct: 10`, `color_temp_kelvin: 2000`
 
 ## Automations (Current)

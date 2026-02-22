@@ -82,7 +82,7 @@ lighting_apply_profile_core:
                 target:
                   area_id: "{{ repeat.item }}"
                 data:
-                  brightness_pct: 45
+                  brightness_pct: 80
                   color_temp_kelvin: 2700
                   transition: "{{ selected_transition | int(2) }}"
 

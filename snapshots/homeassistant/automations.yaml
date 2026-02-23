@@ -316,16 +316,16 @@
 
 - id: hot_water_pump_follow_tado_on_for_1h
   alias: Hot Water - Run Water Pump For 1 Hour When Tado Turns On
-  description: When Tado hot water transitions from not-on to on (auto/heat/on), run the Meross water pump for one hour.
+  description: When Tado hot water power demand turns on, run the Meross water pump for one hour.
   triggers:
     - trigger: state
-      entity_id: water_heater.hot_water
+      entity_id: binary_sensor.hot_water_power
+      from: "off"
+      to: "on"
   conditions:
-    - condition: template
-      value_template: >-
-        {{ trigger.from_state is not none and trigger.to_state is not none
-           and trigger.from_state.state not in ['auto', 'heat', 'on']
-           and trigger.to_state.state in ['auto', 'heat', 'on'] }}
+    - condition: state
+      entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
+      state: "off"
   actions:
     - action: switch.turn_on
       target:
@@ -334,7 +334,7 @@
     - action: switch.turn_off
       target:
         entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
-  mode: restart
+  mode: single
 
 - id: tado_gas_meter_reading_daily_from_octopus
   alias: Tado - Submit Daily Gas Meter Reading From Octopus

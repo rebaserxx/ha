@@ -37,6 +37,54 @@ Implemented by:
 
 ---
 
+## 2026-02-23 - Fix hot water pump trigger to use Tado power demand sensor
+
+Summary:
+- Investigated missed hot-water pump runs and replaced the trigger signal so the automation follows actual Tado hot-water demand.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/change_log.md
+
+Details:
+- Root cause found from live HA history:
+  - `water_heater.hot_water` stayed `auto` during real hot-water demand windows on `2026-02-23` (`05:56` and `17:00` UTC), so the previous state-transition condition did not fire.
+  - The previous automation did fire at `2026-02-22T17:38:37Z` during Tado recovery (`unavailable -> auto`), which is a false-positive pattern.
+- Updated automation `hot_water_pump_follow_tado_on_for_1h`:
+  - trigger changed from `water_heater.hot_water` state-change template to:
+    - `binary_sensor.hot_water_power`
+    - `from: "off"`
+    - `to: "on"`
+  - added guard condition:
+    - pump switch must currently be `off` before starting the run
+  - mode changed:
+    - `restart` -> `single` to avoid delay restarts from brief sensor dropouts while pump is already running
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Live API investigation completed on 2026-02-23:
+    - `binary_sensor.hot_water_power` showed on/off demand transitions
+    - `water_heater.hot_water` remained `auto` across the same window
+  - Deployment validation completed on 2026-02-23:
+    - uploaded updated `/homeassistant/automations.yaml`
+    - `ha core check` passed
+    - `ha core restart` completed successfully
+    - deployed file MD5 matches snapshot MD5 (`8c2c8403e79f2becb4abe59bf99bf436`)
+
+Rollback:
+- In `/homeassistant/automations.yaml`, restore `hot_water_pump_follow_tado_on_for_1h` trigger/condition to previous `water_heater.hot_water` template logic and `mode: restart`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-23 - Set morning lights to 80% and add evening 100% -> 80% schedule
 
 Summary:

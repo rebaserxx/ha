@@ -79,14 +79,10 @@ Excluded by design:
 ### Sunset Common Areas On (Seasonal)
 - ID: `lighting_common_evening_sunset_on_seasonal`
 - Trigger: sunset anchor at `-01:00:00`
-- Action: call `script.lighting_apply_profile_core` with combined target areas:
-  - Common areas (including `attic_lounge`)
-  - Plus separate Lounge target `living_room`
-  - Plus explicit entity `light.office_filament` (David's Office filament)
-- Profile/action:
-  - `action: on`
-  - `profile: evening`
-  - `transition: 3`
+- Action: turn on combined evening targets at full brightness:
+  - Area targets: common areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`) plus Lounge (`living_room`)
+  - Explicit entity: `light.office_filament` (David's Office filament)
+  - Settings: `brightness_pct: 100`, `color_temp_kelvin: 2700`, `transition: 3`
 - Seasonal pre-sunset offsets are applied by `script.lighting_wait_seasonal_offset` with `offset_direction: minus`:
   - Summer (Jun-Aug): 15 minutes before sunset
   - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes before sunset
@@ -110,13 +106,23 @@ Lounge is not in `script.lighting_common_areas`; it is separately targeted only 
   - weekday is Monday-Thursday
   - time is before sunrise
 - Action:
-  - call `script.lighting_common_areas` with:
-    - `action: on`
-    - `profile: day`
-    - `transition: 2`
+  - turn on common areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
+  - settings: `brightness_pct: 80`, `color_temp_kelvin: 4000`, `transition: 2`
 
 Name note:
 - Alias intentionally uses `Mon-Thu` wording for accuracy (it does not run on Friday).
+
+### Evening Dim To 80% At 19:00
+- ID: `lighting_evening_dim_1900`
+- Trigger: `19:00:00` (daily)
+- Action:
+  - build a list of currently-on light entities in evening target areas:
+    - common set + Lounge + Front Porch
+    - plus `light.office_filament`
+  - apply: `brightness_pct: 80`, `color_temp_kelvin: 2700`, `transition: 3`
+- Guard:
+  - only runs `light.turn_on` when at least one target light is already on
+  - does not turn on lights that are currently off
 
 ### Daily Seasonal Post-Sunrise Off
 - ID: `lighting_all_lights_off_after_sunrise_seasonal`
@@ -159,7 +165,7 @@ Name note:
   - `lighting_front_porch_on_at_sunset`
   - `lighting_front_porch_off_2300`
 - Behavior:
-  - At sunset: turn on front porch lights (`script.lighting_outside`, `profile: evening`)
+  - At sunset: turn on front porch lights at `brightness_pct: 100`, `color_temp_kelvin: 2700`
   - At `23:00`: turn off front porch lights
 
 ### Front Porch Early Morning Schedule
@@ -167,7 +173,7 @@ Name note:
   - `lighting_front_porch_on_0620_presunrise`
   - `lighting_front_porch_off_at_sunrise`
 - Behavior:
-  - At `06:20`: turn on front porch lights only if before sunrise
+  - At `06:20`: turn on front porch lights only if before sunrise at `brightness_pct: 80`, `color_temp_kelvin: 4000`
   - At sunrise: turn off front porch lights
 
 ## Change Guide

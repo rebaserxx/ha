@@ -60,6 +60,7 @@ Policy reference:
 - `lighting_common_evening_sunset_on_seasonal`
 - `lighting_overnight_shutdown_0200`
 - `lighting_common_weekday_morning_0620_presunrise`
+- `lighting_evening_dim_1900`
 - `lighting_all_lights_off_after_sunrise_seasonal`
 - `lighting_common_lounge_dim_2215_sun_thu`
 - `lighting_common_lounge_dim_2330_fri_sat`

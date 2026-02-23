@@ -37,6 +37,62 @@ Implemented by:
 
 ---
 
+## 2026-02-23 - Set morning lights to 80% and add evening 100% -> 80% schedule
+
+Summary:
+- Updated morning lighting automations to turn on at 80%.
+- Updated evening start automations to turn on at 100%, then added a 19:00 dim step to 80% for currently-on evening target lights.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/lighting_reusable_components.md
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Updated `lighting_common_weekday_morning_0620_presunrise`:
+  - replaced `script.lighting_common_areas` (`profile: day`) with direct `light.turn_on`
+  - new settings: `brightness_pct: 80`, `color_temp_kelvin: 4000`, `transition: 2`
+- Updated `lighting_front_porch_on_0620_presunrise`:
+  - replaced script wrapper call with direct `light.turn_on` at `brightness_pct: 80`, `color_temp_kelvin: 4000`, `transition: 2`
+- Updated `lighting_common_evening_sunset_on_seasonal`:
+  - common + lounge area action now starts at `brightness_pct: 100`, `color_temp_kelvin: 2700`, `transition: 3`
+  - `light.office_filament` now starts at `brightness_pct: 100` (from 80)
+- Updated `lighting_front_porch_on_at_sunset`:
+  - now starts at `brightness_pct: 100`, `color_temp_kelvin: 2700`, `transition: 2`
+- Added new automation `lighting_evening_dim_1900`:
+  - trigger: daily `19:00:00`
+  - builds a runtime list of currently-on light entities in evening target areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`, `living_room`, `front_porch`) plus `light.office_filament`
+  - applies `brightness_pct: 80`, `color_temp_kelvin: 2700`, `transition: 3` to that list
+  - includes guard condition to skip action when no target lights are currently on
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Local environment did not have a YAML parser (`python3` missing `PyYAML`), so local YAML parse was not run.
+  - Live validation completed on 2026-02-23:
+    - `ha core check` passed
+    - `ha core restart` completed successfully
+    - deployed `/homeassistant/automations.yaml` MD5 matches snapshot MD5
+
+Rollback:
+- Revert `snapshots/homeassistant/automations.yaml` to previous values for:
+  - `lighting_common_weekday_morning_0620_presunrise`
+  - `lighting_common_evening_sunset_on_seasonal`
+  - `lighting_front_porch_on_at_sunset`
+  - `lighting_front_porch_on_0620_presunrise`
+- Remove automation `lighting_evening_dim_1900`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-22 - Include David's Office filament in sunset evening-on automation
 
 Summary:

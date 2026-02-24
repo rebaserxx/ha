@@ -37,6 +37,58 @@ Implemented by:
 
 ---
 
+## 2026-02-24 - Fix Tado daily gas submission resets after restart
+
+Summary:
+- Fixed repeated `invalid new reading` failures in the daily Tado gas submission automation by removing helper reset behavior on core restart.
+- Recovered with a one-time manual catch-up meter submission.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- snapshots/homeassistant/configuration.yaml
+- docs/change_log.md
+
+Details:
+- Root cause:
+  - `input_number.tado_gas_meter_register_m3` and `input_datetime.tado_gas_meter_last_submission_date` were configured with `initial` values.
+  - After core restarts, helpers reset to those fixed initial values, causing computed Tado readings to move backward and fail with:
+    - `invalid new reading`
+- Evidence from history:
+  - Helper register advanced successfully to `26521.044` on `2026-02-22`, then reset back to `26512.0` after restart.
+  - Automation failures logged at `2026-02-23 16:00` and `2026-02-24 16:00`.
+- Permanent fix:
+  - Removed `initial` from:
+    - `input_number.tado_gas_meter_register_m3`
+    - `input_datetime.tado_gas_meter_last_submission_date`
+  - This allows HA restore-state to persist helper values across restarts.
+- Robustness improvement in `tado_gas_meter_reading_daily_from_octopus`:
+  - Added guard so `tado.add_meter_reading` only runs when computed integer reading increases over previous integer.
+  - When integer does not increase, automation still updates helper register/date so fractional consumption carries forward.
+- Recovery action:
+  - Submitted one-time catch-up Tado reading via service call:
+    - `tado.add_meter_reading`
+    - `config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E`
+    - `reading: 26533`
+  - Service response returned success (`[]`).
+
+Validation:
+- [ ] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Next step after deploy is to set helper states to post-catch-up baseline and verify persistence across restart.
+
+Rollback:
+- Re-add helper `initial` values in `/homeassistant/configuration.yaml` for the two Tado helpers (not recommended).
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-23 - Fix hot water pump trigger to use Tado power demand sensor
 
 Summary:

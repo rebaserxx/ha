@@ -361,18 +361,34 @@
         previous_register_m3: "{{ states('input_number.tado_gas_meter_register_m3') | float(0) }}"
         new_register_m3: "{{ (previous_register_m3 + daily_usage_m3) | round(3) }}"
         tado_register_m3: "{{ new_register_m3 | int(0) }}"
-    - action: tado.add_meter_reading
-      data:
-        config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E
-        reading: "{{ tado_register_m3 }}"
-    - action: input_number.set_value
-      target:
-        entity_id: input_number.tado_gas_meter_register_m3
-      data:
-        value: "{{ new_register_m3 }}"
-    - action: input_datetime.set_datetime
-      target:
-        entity_id: input_datetime.tado_gas_meter_last_submission_date
-      data:
-        date: "{{ yesterday_date }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ tado_register_m3 > (previous_register_m3 | int(0)) }}"
+          sequence:
+            - action: tado.add_meter_reading
+              data:
+                config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E
+                reading: "{{ tado_register_m3 }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.tado_gas_meter_register_m3
+              data:
+                value: "{{ new_register_m3 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.tado_gas_meter_last_submission_date
+              data:
+                date: "{{ yesterday_date }}"
+      default:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.tado_gas_meter_register_m3
+          data:
+            value: "{{ new_register_m3 }}"
+        - action: input_datetime.set_datetime
+          target:
+            entity_id: input_datetime.tado_gas_meter_last_submission_date
+          data:
+            date: "{{ yesterday_date }}"
   mode: single

@@ -18,11 +18,9 @@ input_number:
     step: 0.001
     mode: box
     unit_of_measurement: m3
-    initial: 26512
 
 input_datetime:
   tado_gas_meter_last_submission_date:
     name: Tado Gas Meter Last Submission Date
     has_date: true
     has_time: false
-    initial: "2026-02-21"

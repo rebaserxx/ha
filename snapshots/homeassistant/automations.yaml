@@ -82,6 +82,34 @@
         transition: 2
   mode: single
 
+- id: lighting_common_friday_morning_0650_presunrise
+  alias: Lighting - Common Areas On 06:50 Fri Pre-Sunrise
+  description: Turn on common-area lights at 06:50 Friday only if sunrise has not happened yet.
+  triggers:
+    - trigger: time
+      at: "06:50:00"
+  conditions:
+    - condition: time
+      weekday:
+        - fri
+    - condition: sun
+      before: sunrise
+  actions:
+    - action: light.turn_on
+      target:
+        area_id:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+      data:
+        brightness_pct: 80
+        color_temp_kelvin: 4000
+        transition: 2
+  mode: single
+
 - id: lighting_evening_dim_1900
   alias: Lighting - Evening Lights Dim To 80% At 19:00
   description: At 19:00, reduce currently-on evening target lights to 80% without turning on lights that are off.

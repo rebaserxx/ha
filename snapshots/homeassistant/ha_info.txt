@@ -22,7 +22,7 @@ machine: qemux86-64
 machine_id: ca3de8ad16174608b6b0220f01eb418d
 operating_system: Home Assistant OS 17.1
 state: running
-supervisor: 2026.02.2
+supervisor: 2026.02.3
 supported: true
 supported_arch:
 - amd64

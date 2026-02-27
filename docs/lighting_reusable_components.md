@@ -99,18 +99,19 @@ Excluded by design:
 Bedroom lights are intentionally not forced off.
 Lounge is not in `script.lighting_common_areas`; it is separately targeted only by the sunset-on automation.
 
-### 06:20 Weekday Pre-Sunrise On
-- ID: `lighting_common_weekday_morning_0620_presunrise`
-- Trigger: `06:20:00`
+### Weekday Pre-Sunrise On (Split Times)
+- IDs:
+  - `lighting_common_weekday_morning_0620_presunrise`
+  - `lighting_common_friday_morning_0650_presunrise`
+- Behavior:
+  - Monday-Thursday at `06:20`: turn on common areas before sunrise
+  - Friday at `06:50`: turn on common areas before sunrise
 - Conditions:
-  - weekday is Monday-Thursday
+  - day-specific weekday condition (`Mon-Thu` or `Fri`, depending on automation)
   - time is before sunrise
 - Action:
   - turn on common areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
   - settings: `brightness_pct: 80`, `color_temp_kelvin: 4000`, `transition: 2`
-
-Name note:
-- Alias intentionally uses `Mon-Thu` wording for accuracy (it does not run on Friday).
 
 ### Evening Dim To 80% At 19:00
 - ID: `lighting_evening_dim_1900`

@@ -37,6 +37,50 @@ Implemented by:
 
 ---
 
+## 2026-02-27 - Add Friday 06:50 common-area pre-sunrise lighting
+
+Summary:
+- Kept common-area morning lights on at `06:20` for Monday-Thursday and added a separate Friday run at `06:50`.
+- Kept front porch morning schedule unchanged.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/lighting_reusable_components.md
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Kept existing automation `lighting_common_weekday_morning_0620_presunrise` unchanged:
+  - trigger `06:20:00`
+  - weekday condition `mon`, `tue`, `wed`, `thu`
+  - condition `before: sunrise`
+- Added new automation `lighting_common_friday_morning_0650_presunrise`:
+  - trigger `06:50:00`
+  - weekday condition `fri`
+  - condition `before: sunrise`
+  - action target and settings match existing common-area morning behavior
+- Did not change front porch automation `lighting_front_porch_on_0620_presunrise`.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed `/homeassistant/automations.yaml` and ran `ha core check` successfully.
+  - Reloaded automations via `automation.reload` service.
+  - Verified no drift with `make verify`.
+
+Rollback:
+- Remove automation `lighting_common_friday_morning_0650_presunrise` from `/homeassistant/automations.yaml`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-24 - Add UI form script for manual Tado gas baseline correction
 
 Summary:

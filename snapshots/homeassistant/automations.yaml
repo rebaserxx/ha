@@ -314,6 +314,56 @@
         transition: 2
   mode: single
 
+- id: lighting_front_porch_motion_overnight
+  alias: Lighting - Front Porch Motion Overnight
+  description: Between 23:00 and 06:20 (before sunrise), use front porch motion to turn lights on, then back off after no motion.
+  triggers:
+    - trigger: template
+      value_template: >-
+        {{ expand(area_entities('front_porch'))
+           | selectattr('domain', 'eq', 'binary_sensor')
+           | selectattr('attributes.device_class', 'eq', 'motion')
+           | selectattr('state', 'eq', 'on')
+           | list
+           | count > 0 }}
+  conditions:
+    - condition: time
+      after: "23:00:00"
+      before: "06:20:00"
+    - condition: sun
+      before: sunrise
+  actions:
+    - action: light.turn_on
+      target:
+        area_id:
+          - front_porch
+      data:
+        brightness_pct: 50
+        color_temp_kelvin: 2000
+        transition: 1
+    - wait_for_trigger:
+        - trigger: template
+          value_template: >-
+            {{ expand(area_entities('front_porch'))
+               | selectattr('domain', 'eq', 'binary_sensor')
+               | selectattr('attributes.device_class', 'eq', 'motion')
+               | selectattr('state', 'eq', 'on')
+               | list
+               | count == 0 }}
+          for: "00:03:00"
+      timeout: "00:20:00"
+      continue_on_timeout: true
+    - condition: time
+      after: "23:00:00"
+      before: "06:20:00"
+    - condition: sun
+      before: sunrise
+    - action: script.lighting_outside
+      data:
+        action: "off"
+        transition: 2
+  mode: restart
+
 - id: hot_water_pump_follow_tado_on_for_1h
   alias: Hot Water - Run Water Pump For 1 Hour When Tado Turns On
   description: When Tado hot water power demand turns on, run the Meross water pump for one hour.

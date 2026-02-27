@@ -37,6 +37,50 @@ Implemented by:
 
 ---
 
+## 2026-02-24 - Add UI form script for manual Tado gas baseline correction
+
+Summary:
+- Added a script with input fields so manual gas meter corrections can be entered from a Home Assistant form instead of manual helper edits.
+
+Files changed:
+- snapshots/homeassistant/scripts.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added script:
+  - `tado_gas_set_manual_baseline`
+- Script inputs (form fields):
+  - `manual_reading` (required whole number)
+  - `submission_date` (optional date; defaults to today when omitted)
+- Script behavior:
+  - reads current helper `input_number.tado_gas_meter_register_m3`
+  - preserves fractional carry from helper
+  - sets corrected helper baseline to `manual_reading + fractional_carry`
+  - updates `input_datetime.tado_gas_meter_last_submission_date`
+  - creates a confirmation `persistent_notification`
+- Updated config reference:
+  - script inventory includes `tado_gas_set_manual_baseline`
+  - Tado gas section documents form usage
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed `/homeassistant/scripts.yaml`, reloaded scripts via `script.reload`, and verified `script.tado_gas_set_manual_baseline` is available.
+
+Rollback:
+- Remove `tado_gas_set_manual_baseline` from `/homeassistant/scripts.yaml`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-24 - Fix Tado daily gas submission resets after restart
 
 Summary:

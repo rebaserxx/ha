@@ -79,6 +79,7 @@ Policy reference:
 - `lighting_bedrooms`
 - `lighting_outside`
 - `lighting_wait_seasonal_offset`
+- `tado_gas_set_manual_baseline`
 
 ## Area ID Reference
 Use these exact IDs when targeting by area.
@@ -128,6 +129,10 @@ Tracking guidance:
 - Helpers:
   - `input_number.tado_gas_meter_register_m3` (running cumulative register value)
   - `input_datetime.tado_gas_meter_last_submission_date` (idempotency guard)
+- Manual correction form:
+  - Script: `tado_gas_set_manual_baseline`
+  - Usage: run from UI with `manual_reading` (integer) and optional `submission_date`
+  - Behavior: preserves helper fractional carry, updates helper baseline/date, and posts a confirmation notification.
 
 Operational intent:
 - Octopus sensor provides daily gas usage, not an absolute meter register.

@@ -238,3 +238,50 @@ lighting_wait_seasonal_offset:
           {% set s = wait_seconds | int %}
           {{ '%02d:%02d:%02d' | format(s // 3600, (s % 3600) // 60, s % 60) }}
     - delay: "{{ wait_hms }}"
+
+tado_gas_set_manual_baseline:
+  alias: Tado Gas Set Manual Baseline
+  description: Apply a manual whole-number gas meter baseline while preserving helper fractional carry and updating submission date.
+  mode: single
+  fields:
+    manual_reading:
+      description: Whole-number gas meter reading entered manually.
+      example: 26540
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 999999
+          step: 1
+          mode: box
+    submission_date:
+      description: Date to store as last submission date (usually today).
+      example: "2026-02-24"
+      selector:
+        date: {}
+  sequence:
+    - variables:
+        manual_int: "{{ manual_reading | int(0) }}"
+        current_register: "{{ states('input_number.tado_gas_meter_register_m3') | float(0) }}"
+        current_fraction: "{{ (current_register - (current_register | int(0))) | round(3) }}"
+        corrected_register: "{{ (manual_int + current_fraction) | round(3) }}"
+        effective_date: >-
+          {{ submission_date if submission_date is defined and submission_date not in [none, '']
+             else (now().date() | string) }}
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.tado_gas_meter_register_m3
+      data:
+        value: "{{ corrected_register }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.tado_gas_meter_last_submission_date
+      data:
+        date: "{{ effective_date }}"
+    - action: persistent_notification.create
+      data:
+        title: Tado Gas Baseline Updated
+        message: >-
+          Manual reading {{ manual_int }} applied.
+          Helper set to {{ corrected_register }} (fraction preserved: {{ current_fraction }}).
+          Last submission date set to {{ effective_date }}.

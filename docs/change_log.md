@@ -37,6 +37,57 @@ Implemented by:
 
 ---
 
+## 2026-02-27 - Add Octopus gas rollover health-check automation
+
+Summary:
+- Implemented a non-invasive monitor for Octopus gas daily rollover so missing `last_reset` day changes are surfaced immediately.
+- Chosen remediation path is wait-and-monitor (no historical data backfill).
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added automation:
+  - `octopus_energy_gas_rollover_health_daily_check`
+- Trigger:
+  - daily at `19:00:00`
+- Monitored sensor:
+  - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh`
+- Health condition:
+  - expected `last_reset` date = yesterday (`YYYY-MM-DD`)
+  - failure when kWh sensor is unknown/unavailable or `last_reset` date does not match yesterday
+- Failure behavior:
+  - creates persistent notification:
+    - `notification_id: octopus_energy_gas_rollover_health`
+    - includes expected date, observed date, and current gas kWh/m3 states
+- Recovery behavior:
+  - dismisses notification `octopus_energy_gas_rollover_health` automatically when data is healthy
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [x] Manual test run completed
+- Notes:
+  - Monitor is intentionally read-only and does not modify sensors/statistics.
+  - Deployed updated `/homeassistant/automations.yaml` and ran `ha core check` successfully.
+  - Reloaded automations via `automation.reload` service (`[]` response).
+  - Manual trigger executed successfully; automation `last_triggered` updated to `2026-02-27T17:32:02+00:00`.
+  - Notification state check returned `404` for `persistent_notification.octopus_energy_gas_rollover_health` (expected healthy-path result).
+  - Verified snapshot-to-live parity with `make verify` (no drift).
+
+Rollback:
+- Remove `octopus_energy_gas_rollover_health_daily_check` from `/homeassistant/automations.yaml` and reload automations.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-27 - Add Friday 06:50 common-area pre-sunrise lighting
 
 Summary:

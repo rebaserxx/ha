@@ -470,3 +470,46 @@
           data:
             date: "{{ yesterday_date }}"
   mode: single
+
+- id: octopus_energy_gas_rollover_health_daily_check
+  alias: Octopus Energy - Gas Rollover Health Check
+  description: Alert if Octopus gas previous-day rollover (last_reset) is missing or stale.
+  triggers:
+    - trigger: time
+      at: "19:00:00"
+  conditions: []
+  actions:
+    - variables:
+        gas_kwh_sensor: sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh
+        gas_m3_sensor: sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3
+        expected_last_reset_date: "{{ ((today_at('00:00') - timedelta(days=1)).date() | string) }}"
+        gas_kwh_state: "{{ states(gas_kwh_sensor) }}"
+        gas_m3_state: "{{ states(gas_m3_sensor) }}"
+        gas_last_reset_raw: "{{ state_attr(gas_kwh_sensor, 'last_reset') }}"
+        gas_last_reset_date: >-
+          {% if gas_last_reset_raw in [none, 'unknown', 'unavailable', 'none', 'None', ''] %}
+            unknown
+          {% else %}
+            {{ gas_last_reset_raw[0:10] }}
+          {% endif %}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ gas_kwh_state in ['unknown', 'unavailable', 'none', 'None', '']
+                   or gas_last_reset_date != expected_last_reset_date }}
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: octopus_energy_gas_rollover_health
+                title: Octopus Energy Gas Rollover Check Failed
+                message: >-
+                  Expected Octopus gas last_reset date {{ expected_last_reset_date }}, got {{ gas_last_reset_date }}.
+                  kWh state: {{ gas_kwh_state }}.
+                  m3 state: {{ gas_m3_state }}.
+                  Check Octopus integration diagnostics and Energy statistics continuity.
+      default:
+        - action: persistent_notification.dismiss
+          data:
+            notification_id: octopus_energy_gas_rollover_health
+  mode: single

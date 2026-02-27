@@ -1,6 +1,6 @@
 # Home Assistant Configuration Reference
 
-Last verified on 2026-02-22.
+Last verified on 2026-02-27.
 
 ## System Snapshot
 - Core version: `2026.2.3`
@@ -73,6 +73,7 @@ Policy reference:
 - `lighting_front_porch_off_at_sunrise`
 - `hot_water_pump_follow_tado_on_for_1h`
 - `tado_gas_meter_reading_daily_from_octopus`
+- `octopus_energy_gas_rollover_health_daily_check`
 
 ## Current Script Inventory
 - `lighting_apply_profile_core`
@@ -110,10 +111,11 @@ Use these exact IDs when targeting by area.
 4. Validate with `ha core check` after YAML edits.
 5. Reload scripts/automations or restart HA core to apply.
 
-## Known Operational Issues (Observed 2026-02-22)
+## Known Operational Issues (Observed 2026-02-27)
 - `pychromecast` socket disconnect errors for `LG webOS TV (192.168.1.55:8009)` recur in core logs.
 - `anglian_water` config flow raised `AttributeError: 'NoneType' object has no attribute 'get'` during account lookup.
 - `tuya` warning for invalid enum value `frost` on product id `lgibckbiszegmjlo`.
+- Octopus gas daily consumption rollover (`last_reset`) has shown intermittent missed day transitions, causing Energy dashboard day gaps.
 
 Tracking guidance:
 - Treat this list as operational debt; keep it current when issues are resolved or newly observed.
@@ -141,6 +143,20 @@ Operational intent:
 - Tado submission is sent as an integer (no decimal places).
 - Tado service schema in HA `2026.2.3` expects `config_entry` and `reading` (not `utility`/`date`).
 - Internal day tracking uses yesterday so submission cadence aligns with the `previous_*` Octopus data series.
+
+## Octopus Gas Rollover Monitoring
+- Automation: `octopus_energy_gas_rollover_health_daily_check`
+- Schedule: daily at `19:00`
+- Primary sensor:
+  - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh`
+- Validation:
+  - compares sensor `last_reset` date to yesterday (`YYYY-MM-DD`)
+  - treats unknown/unavailable kWh sensor state as failure
+- Failure action:
+  - creates persistent notification `octopus_energy_gas_rollover_health`
+  - includes expected date, observed date, and current kWh/m3 states
+- Recovery action:
+  - dismisses notification `octopus_energy_gas_rollover_health`
 
 ## Change Control Notes
 When requesting changes, specify:

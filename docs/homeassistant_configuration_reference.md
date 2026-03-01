@@ -12,6 +12,7 @@ Last verified on 2026-03-01.
 - `default_config:`
 - `homeassistant.customize:` for canonical HomeKit-exported room names
 - `homekit:` for the active production HomeKit bridges (`HA Lights`, `HA Climate`)
+- `lovelace:` for the tracked YAML appliance dashboard (`Appliances`)
 - `frontend` themes from `themes/` via `!include_dir_merge_named`
 - `automation: !include automations.yaml`
 - `script: !include scripts.yaml`
@@ -32,6 +33,8 @@ Last verified on 2026-03-01.
   - Contains reusable light scripts and wrappers.
 - `/config/scenes.yaml`
   - Present, currently empty.
+- `/config/dashboards/appliances.yaml`
+  - YAML Lovelace dashboard for Home Connect appliances.
 - `/config/configuration.yaml`
   - Also defines helper entities used by the Tado gas meter automation.
 
@@ -91,6 +94,14 @@ Policy reference:
 - `tado_hot_water_auto`
 - `tado_hot_water_off`
 - `tado_hot_water_boost`
+
+## Current Dashboard Inventory
+- Storage dashboards:
+  - `Map` (`lovelace.map`)
+- YAML dashboards:
+  - `Appliances`
+    - file: `/config/dashboards/appliances.yaml`
+    - purpose: ovens, dishwasher, and dryer status, remaining time, and safe controls
 
 ## Area ID Reference
 Use these exact IDs when targeting by area.

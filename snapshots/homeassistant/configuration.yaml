@@ -95,9 +95,120 @@ homekit:
 frontend:
   themes: !include_dir_merge_named themes
 
+lovelace:
+  dashboards:
+    kitchen-appliances:
+      mode: yaml
+      title: Appliances
+      icon: mdi:home-automation
+      show_in_sidebar: true
+      require_admin: false
+      filename: dashboards/appliances.yaml
+
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
+
+template:
+  - sensor:
+      - name: Left Oven Programme
+        unique_id: left_oven_programme_label
+        icon: mdi:stove
+        state: >
+          {% set raw = states('select.left_oven_selected_programme') %}
+          {% if raw in ['unknown', 'unavailable', 'none', 'None'] %}
+            Not selected
+          {% else %}
+            {{ raw
+              | replace('cooking_oven_program_heating_mode_', '')
+              | replace('_eco', ' eco')
+              | replace('_', ' ')
+              | title }}
+          {% endif %}
+      - name: Left Oven Time Remaining
+        unique_id: left_oven_time_remaining_label
+        icon: mdi:timer-outline
+        state: >
+          {% set finish = states('sensor.left_oven_programme_finish_time') %}
+          {% set op = states('sensor.left_oven_operation_state') %}
+          {% if finish in ['unknown', 'unavailable', 'none', 'None'] or op in ['inactive', 'ready', 'finished'] %}
+            Idle
+          {% else %}
+            {% set minutes = [(((as_timestamp(finish) - as_timestamp(now())) / 60) | round(0, 'ceil')), 0] | max %}
+            {{ minutes }} min
+          {% endif %}
+      - name: Right Oven Programme
+        unique_id: right_oven_programme_label
+        icon: mdi:stove
+        state: >
+          {% set raw = states('select.right_oven_selected_programme') %}
+          {% if raw in ['unknown', 'unavailable', 'none', 'None'] %}
+            Not selected
+          {% else %}
+            {{ raw
+              | replace('cooking_oven_program_heating_mode_', '')
+              | replace('_eco', ' eco')
+              | replace('_', ' ')
+              | title }}
+          {% endif %}
+      - name: Right Oven Time Remaining
+        unique_id: right_oven_time_remaining_label
+        icon: mdi:timer-outline
+        state: >
+          {% set finish = states('sensor.right_oven_programme_finish_time') %}
+          {% set op = states('sensor.right_oven_operation_state') %}
+          {% if finish in ['unknown', 'unavailable', 'none', 'None'] or op in ['inactive', 'ready', 'finished'] %}
+            Idle
+          {% else %}
+            {% set minutes = [(((as_timestamp(finish) - as_timestamp(now())) / 60) | round(0, 'ceil')), 0] | max %}
+            {{ minutes }} min
+          {% endif %}
+      - name: Dishwasher Programme
+        unique_id: dishwasher_programme_label
+        icon: mdi:dishwasher
+        state: >
+          {% set raw = states('select.dishwasher_selected_programme') %}
+          {% if raw in ['unknown', 'unavailable', 'none', 'None'] %}
+            Not selected
+          {% else %}
+            {{ raw
+              | replace('dishcare_dishwasher_program_', '')
+              | replace('_', ' ')
+              | title }}
+          {% endif %}
+      - name: Dishwasher Time Remaining
+        unique_id: dishwasher_time_remaining_label
+        icon: mdi:timer-outline
+        state: >
+          {% set finish = states('sensor.dishwasher_programme_finish_time') %}
+          {% set op = states('sensor.dishwasher_operation_state') %}
+          {% if finish in ['unknown', 'unavailable', 'none', 'None'] or op in ['inactive', 'ready', 'finished'] %}
+            Idle
+          {% else %}
+            {% set minutes = [(((as_timestamp(finish) - as_timestamp(now())) / 60) | round(0, 'ceil')), 0] | max %}
+            {{ minutes }} min
+          {% endif %}
+      - name: Dryer Time Remaining
+        unique_id: dryer_time_remaining_label
+        icon: mdi:timer-outline
+        state: >
+          {% set remaining = states('sensor.dryer_remaining_time') %}
+          {% set status = states('sensor.dryer_current_status') %}
+          {% if remaining in ['unknown', 'unavailable', 'none', 'None'] or status in ['power_off', 'finished'] %}
+            Idle
+          {% else %}
+            {{ remaining | replace('_', ' ') | title }}
+          {% endif %}
+      - name: Dryer Status
+        unique_id: dryer_status_label
+        icon: mdi:tumble-dryer
+        state: >
+          {% set raw = states('sensor.dryer_current_status') %}
+          {% if raw in ['unknown', 'unavailable', 'none', 'None'] %}
+            Unknown
+          {% else %}
+            {{ raw | replace('_', ' ') | title }}
+          {% endif %}
 
 input_number:
   tado_gas_meter_register_m3:

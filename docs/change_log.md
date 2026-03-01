@@ -37,6 +37,66 @@ Implemented by:
 
 ---
 
+## 2026-03-01 - Add appliance dashboard for Home Connect appliances
+
+Summary:
+- Added a dedicated Lovelace appliance dashboard for the two ovens and dishwasher.
+- Added template sensors that convert raw Home Connect programme IDs and finish timestamps into readable programme names and time-remaining values.
+- Extended the HA sync tooling to track the new dashboard file.
+- Renamed the dashboard to `Appliances` and added the LG tumble dryer.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- snapshots/homeassistant/dashboards/kitchen_appliances.yaml
+- snapshots/homeassistant/dashboards/appliances.yaml
+- scripts/sync_from_ha.sh
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added `lovelace.dashboards.kitchen-appliances` in `configuration.yaml`:
+  - title: `Appliances`
+  - icon: `mdi:home-automation`
+  - file: `dashboards/appliances.yaml`
+- Added template sensors:
+  - `sensor.left_oven_programme`
+  - `sensor.left_oven_time_remaining`
+  - `sensor.right_oven_programme`
+  - `sensor.right_oven_time_remaining`
+  - `sensor.dishwasher_programme`
+  - `sensor.dishwasher_time_remaining`
+  - `sensor.dryer_status`
+  - `sensor.dryer_time_remaining`
+- Added a new dashboard view with:
+  - at-a-glance remaining time and status
+  - dedicated cards for left oven, right oven, dishwasher, and dryer
+  - safe controls already exposed by Home Connect, including power, programme selection, and stop/pause actions where available
+- Updated `scripts/sync_from_ha.sh` so nested dashboard files are fetched and verified cleanly.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed updated `/homeassistant/configuration.yaml`.
+  - Deployed `/homeassistant/dashboards/appliances.yaml`.
+  - `ha core check` completed successfully on the HA host.
+  - Restarted Home Assistant Core and confirmed the new template sensors were created.
+  - Verified snapshot-to-live parity with `make verify` (no drift).
+
+Rollback:
+- Remove the `lovelace:` and `template:` additions from `/config/configuration.yaml`.
+- Remove `/config/dashboards/appliances.yaml`.
+- Restore the prior `scripts/sync_from_ha.sh` file list if dashboard tracking is no longer wanted.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-03-01 - Remove HomeKit pilot bridge after production cutover
 
 Summary:

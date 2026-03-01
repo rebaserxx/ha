@@ -14,6 +14,7 @@ FILES=(
   "automations.yaml"
   "scripts.yaml"
   "scenes.yaml"
+  "dashboards/appliances.yaml"
 )
 
 usage() {
@@ -32,6 +33,7 @@ EOF
 fetch_file() {
   local remote_file="$1"
   local local_file="$2"
+  mkdir -p "$(dirname "${local_file}")"
   ssh "${SSH_OPTS[@]}" "${HA_HOST}" "cat '${HA_CONFIG_DIR}/${remote_file}'" > "${local_file}"
 }
 
@@ -48,6 +50,7 @@ sync_snapshots() {
     local tmp_file
     tmp_file="$(mktemp)"
     fetch_file "${file}" "${tmp_file}"
+    mkdir -p "$(dirname "${SNAPSHOT_DIR}/${file}")"
     mv "${tmp_file}" "${SNAPSHOT_DIR}/${file}"
   done
 

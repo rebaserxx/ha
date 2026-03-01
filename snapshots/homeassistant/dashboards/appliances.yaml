@@ -1,0 +1,149 @@
+title: Appliances
+views:
+  - title: Appliances
+    path: appliances
+    icon: mdi:home-automation
+    cards:
+      - type: markdown
+        content: |
+          # Appliances
+          Remaining times and finish times are shown whenever Home Connect reports an active programme.
+
+      - type: entities
+        title: At A Glance
+        show_header_toggle: false
+        entities:
+          - entity: sensor.left_oven_time_remaining
+            name: Left oven time left
+          - entity: sensor.right_oven_time_remaining
+            name: Right oven time left
+          - entity: sensor.dishwasher_time_remaining
+            name: Dishwasher time left
+          - entity: sensor.dryer_time_remaining
+            name: Dryer time left
+          - entity: sensor.left_oven_operation_state
+            name: Left oven status
+          - entity: sensor.right_oven_operation_state
+            name: Right oven status
+          - entity: sensor.dishwasher_operation_state
+            name: Dishwasher status
+          - entity: sensor.dryer_status
+            name: Dryer status
+
+      - type: entities
+        title: Left Oven
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.left_oven_programme
+            name: Programme
+          - entity: sensor.left_oven_operation_state
+            name: Status
+          - entity: sensor.left_oven_time_remaining
+            name: Time left
+          - entity: sensor.left_oven_programme_finish_time
+            name: Finishes at
+          - entity: sensor.left_oven_programme_progress
+            name: Progress
+          - entity: sensor.left_oven_current_oven_cavity_temperature
+            name: Cavity temperature
+          - entity: sensor.left_oven_door
+            name: Door
+          - entity: switch.left_oven_power
+            name: Power
+          - entity: switch.left_oven_child_lock
+            name: Child lock
+          - entity: button.left_oven_pause_programme
+            name: Pause programme
+          - entity: button.left_oven_stop_programme
+            name: Stop programme
+
+      - type: entities
+        title: Right Oven
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.right_oven_programme
+            name: Programme
+          - entity: sensor.right_oven_operation_state
+            name: Status
+          - entity: sensor.right_oven_time_remaining
+            name: Time left
+          - entity: sensor.right_oven_programme_finish_time
+            name: Finishes at
+          - entity: sensor.right_oven_programme_progress
+            name: Progress
+          - entity: sensor.right_oven_current_oven_cavity_temperature
+            name: Cavity temperature
+          - entity: sensor.right_oven_door
+            name: Door
+          - entity: switch.right_oven_power
+            name: Power
+          - entity: switch.right_oven_child_lock
+            name: Child lock
+          - entity: number.right_oven_setpoint_temperature
+            name: Setpoint temperature
+          - entity: button.right_oven_pause_programme
+            name: Pause programme
+          - entity: button.right_oven_stop_programme
+            name: Stop programme
+
+      - type: entities
+        title: Dishwasher
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.dishwasher_programme
+            name: Programme
+          - entity: sensor.dishwasher_operation_state
+            name: Status
+          - entity: sensor.dishwasher_time_remaining
+            name: Time left
+          - entity: sensor.dishwasher_programme_finish_time
+            name: Finishes at
+          - entity: sensor.dishwasher_programme_progress
+            name: Progress
+          - entity: sensor.dishwasher_door
+            name: Door
+          - entity: switch.dishwasher_power
+            name: Power
+          - entity: number.dishwasher_start_in_relative
+            name: Start delay
+          - entity: select.dishwasher_selected_programme
+            name: Selected programme
+          - entity: switch.dishwasher_eco_dry
+            name: Eco dry
+          - entity: switch.dishwasher_half_load
+            name: Half load
+          - entity: switch.dishwasher_hygiene
+            name: Hygiene+
+          - entity: switch.dishwasher_intensive_zone
+            name: Intensive zone
+          - entity: switch.dishwasher_vario_speed
+            name: Vario speed+
+          - entity: button.dishwasher_stop_programme
+            name: Stop programme
+
+      - type: entities
+        title: LG Tumble Dryer
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.dryer_status
+            name: Status
+          - entity: sensor.dryer_time_remaining
+            name: Time left
+          - entity: sensor.dryer_remaining_time
+            name: Remaining time raw
+          - entity: sensor.dryer_total_time
+            name: Total time
+          - entity: sensor.dryer_delayed_end
+            name: Delayed end
+          - entity: binary_sensor.dryer_remote_start
+            name: Remote start
+          - entity: switch.dryer_power
+            name: Power
+          - entity: number.dryer_delayed_end
+            name: Delayed end setting
+          - entity: select.dryer_operation
+            name: Operation

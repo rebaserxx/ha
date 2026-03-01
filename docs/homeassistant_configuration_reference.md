@@ -11,7 +11,7 @@ Last verified on 2026-03-01.
 `/config/configuration.yaml` currently includes:
 - `default_config:`
 - `homeassistant.customize:` for canonical HomeKit-exported room names
-- `homekit:` for the pilot HomeKit bridge (`HA Pilot Lights`)
+- `homekit:` for the active production HomeKit bridges (`HA Lights`, `HA Climate`)
 - `frontend` themes from `themes/` via `!include_dir_merge_named`
 - `automation: !include automations.yaml`
 - `script: !include scripts.yaml`
@@ -25,7 +25,7 @@ Last verified on 2026-03-01.
 - `/config/configuration.yaml`
   - Also defines HomeKit-facing friendly-name customizations for exported room lights and Tado climates.
 - `/config/configuration.yaml`
-  - Also defines the current YAML-managed HomeKit pilot bridge include list.
+  - Also defines the current YAML-managed HomeKit bridge include lists.
 - `/config/automations.yaml`
   - Contains light schedule automations.
 - `/config/scripts.yaml`
@@ -114,13 +114,6 @@ Use these exact IDs when targeting by area.
 - `hot_water` -> Utilities
 
 ## HomeKit Bridge Export Reference
-- Current pilot bridge is YAML-managed:
-  - `HA Pilot Lights`
-  - port `21063`
-  - include entities:
-    - `light.sarahs_office`
-    - `light.guest_bedroom`
-    - `light.ren_s_bedroom`
 - Current production light bridge is YAML-managed:
   - `HA Lights`
   - port `21064`

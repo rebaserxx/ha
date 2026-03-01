@@ -4,7 +4,7 @@ Last updated on 2026-03-01.
 
 ## Intent
 
-This HomeKit rollout currently starts with a YAML-managed pilot bridge so the initial include list is explicit and reproducible from the repo. The repo defines the canonical exported names and the pilot bridge in [snapshots/homeassistant/configuration.yaml](/home/rebaser/ha/snapshots/homeassistant/configuration.yaml).
+This HomeKit rollout is currently defined in YAML for the active production bridges so the include lists stay explicit and reproducible from the repo. The repo defines the canonical exported names and active bridges in [snapshots/homeassistant/configuration.yaml](/home/rebaser/ha/snapshots/homeassistant/configuration.yaml).
 
 The export model is intentionally simple:
 - Lighting: expose one room-level control per room, named `Room Lights`
@@ -15,23 +15,17 @@ The export model is intentionally simple:
 
 Current state:
 
-1. `HA Pilot Lights`
-   - YAML-managed
-   - Include-mode only via `filter.include_entities`
-   - Temporary bridge for validation in a separate Apple Home
-2. `HA Lights`
+1. `HA Lights`
    - YAML-managed
    - Include-mode only via `filter.include_entities`
    - Production bridge for room lighting controls
-   - Ready for pairing into the main Apple Home when you decide to cut over
-3. `HA Climate`
+2. `HA Climate`
    - YAML-managed
    - Include-mode only via `filter.include_entities`
    - Production bridge for Tado room heating controls plus hot water
-   - Ready for pairing into the main Apple Home when you decide to cut over
 
 Planned later entries:
-4. Accessory-mode entries for TVs/receivers
+3. Accessory-mode entries for TVs/receivers
    - One per supported `media_player`
 
 ## Light Bridge Entity List
@@ -118,18 +112,9 @@ Do not include Tado helper entities:
 
 ## Suggested Rollout Order
 
-### Pilot Lights
-
-Use a separate temporary Apple Home first with:
-- `light.sarahs_office`
-- `light.guest_bedroom`
-- `light.ren_s_bedroom`
-
-This pilot bridge is already defined in YAML as `HA Pilot Lights`.
-
 ### Production Lights Bridge
 
-`HA Lights` is already defined in YAML and includes the full room-light set. Pair it only when you are ready to start the production room-by-room cutover in your main Apple Home.
+`HA Lights` is defined in YAML and includes the full room-light set. Use it as the only active HomeKit lighting bridge.
 
 ### Production Lights
 
@@ -195,10 +180,7 @@ For each migrated room:
 ## Operational Notes
 
 - Finalize the friendly names before first HomeKit pairing because HomeKit can retain the initial exported name.
-- The initial pilot bridge is YAML-managed. If you later switch to UI-managed production bridges, delete the YAML pilot bridge first to avoid parallel HomeKit instances for the same migration stage.
-- The current light bridges are YAML-managed:
 - The current bridges are YAML-managed:
-  - `HA Pilot Lights` on port `21063`
   - `HA Lights` on port `21064`
   - `HA Climate` on port `21065`
 - If a single entity causes instability, remove only that entity from the bridge and continue with the rest.

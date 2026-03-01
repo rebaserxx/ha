@@ -37,6 +37,57 @@ Implemented by:
 
 ---
 
+## 2026-03-01 - Remove HomeKit pilot bridge after production cutover
+
+Summary:
+- Removed the temporary `HA Pilot Lights` bridge after the production light bridge was paired and validated.
+- Kept `HA Lights` and `HA Climate` as the active YAML-managed HomeKit bridges.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/homekit_bridge_migration.md
+- docs/change_log.md
+
+Details:
+- Removed the YAML-managed HomeKit pilot bridge:
+  - `name: HA Pilot Lights`
+  - `port: 21063`
+  - previous include entities:
+    - `light.sarahs_office`
+    - `light.guest_bedroom`
+    - `light.ren_s_bedroom`
+- Left active bridges unchanged:
+  - `HA Lights` on `21064`
+  - `HA Climate` on `21065`
+- Updated the HomeKit migration docs and configuration reference to reflect the pilot bridge removal.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed updated `/homeassistant/configuration.yaml` without the `HA Pilot Lights` bridge.
+  - `ha core check` completed successfully on the HA host.
+  - Restarted Home Assistant Core and confirmed `HA Pilot Lights` was no longer present in `.storage/core.config_entries` or `.storage/core.device_registry`.
+  - Archived stale pilot bridge state files:
+    - `homekit.01KJM7GT7ZSA1YFHAQNT6XMRX8.aids.removed.1772359078`
+    - `homekit.01KJM7GT7ZSA1YFHAQNT6XMRX8.iids.removed.1772359078`
+    - `homekit.01KJM7GT7ZSA1YFHAQNT6XMRX8.state.removed.1772359078`
+  - Verified `HA Lights` and `HA Climate` remained present after cleanup.
+  - Verified snapshot-to-live parity with `make verify` (no drift).
+
+Rollback:
+- Re-add the `HA Pilot Lights` YAML block to `/homeassistant/configuration.yaml` and restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-03-01 - Prepare HomeKit bridge migration naming and runbook
 
 Summary:

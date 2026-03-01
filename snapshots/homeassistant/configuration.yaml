@@ -57,13 +57,6 @@ homeassistant:
       friendly_name: Toilet Heating
 
 homekit:
-  - name: HA Pilot Lights
-    port: 21063
-    filter:
-      include_entities:
-        - light.sarahs_office
-        - light.guest_bedroom
-        - light.ren_s_bedroom
   - name: HA Lights
     port: 21064
     filter:

@@ -101,6 +101,11 @@ Include only these Tado room-level climate entities plus hot water:
 
 `HA Climate` now includes this full set in YAML on port `21065`.
 
+Hot water note:
+- Home Assistant can expose `water_heater.hot_water` through HomeKit Bridge.
+- Tado’s native HomeKit support does not support hot water control, so the Apple Home presentation may still feel unlike the Tado app.
+- If the exported hot water accessory is not useful in Apple Home, prefer using the HA scripts `tado_hot_water_auto`, `tado_hot_water_off`, and `tado_hot_water_boost` in Home Assistant instead of relying on the bridged water-heater accessory.
+
 Do not include these non-Tado climate entities:
 - `climate.ecostrad_klasse_iq`
 - `climate.nathaniel_meacocool_mc_series_12000_pro`

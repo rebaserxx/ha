@@ -285,3 +285,50 @@ tado_gas_set_manual_baseline:
           Manual reading {{ manual_int }} applied.
           Helper set to {{ corrected_register }} (fraction preserved: {{ current_fraction }}).
           Last submission date set to {{ effective_date }}.
+
+tado_hot_water_auto:
+  alias: Tado Hot Water Auto
+  description: Return Tado hot water to schedule mode.
+  mode: single
+  sequence:
+    - action: water_heater.set_operation_mode
+      target:
+        entity_id: water_heater.hot_water
+      data:
+        operation_mode: auto
+
+tado_hot_water_off:
+  alias: Tado Hot Water Off
+  description: Turn Tado hot water off.
+  mode: single
+  sequence:
+    - action: water_heater.turn_off
+      target:
+        entity_id: water_heater.hot_water
+
+tado_hot_water_boost:
+  alias: Tado Hot Water Boost
+  description: Turn on Tado hot water for a fixed time period.
+  mode: single
+  fields:
+    duration_minutes:
+      description: Boost duration in minutes.
+      example: 60
+      selector:
+        number:
+          min: 5
+          max: 180
+          step: 5
+          mode: box
+  sequence:
+    - variables:
+        boost_minutes: "{{ duration_minutes | default(60) | int(60) }}"
+        boost_seconds: "{{ boost_minutes * 60 }}"
+        boost_hms: >-
+          {% set s = boost_seconds | int %}
+          {{ '%02d:%02d:%02d' | format(s // 3600, (s % 3600) // 60, s % 60) }}
+    - action: tado.set_water_heater_timer
+      target:
+        entity_id: water_heater.hot_water
+      data:
+        time_period: "{{ boost_hms }}"

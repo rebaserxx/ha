@@ -157,6 +157,47 @@ Implemented by:
 
 ---
 
+## 2026-03-01 - Add explicit Tado hot water control scripts
+
+Summary:
+- Added explicit Home Assistant scripts for Tado hot water so the user can control hot water in a way that more closely matches the Tado app.
+- Documented that Apple HomeKit does not natively support Tado hot water control, so the bridged water-heater entity may remain awkward in Apple Home.
+
+Files changed:
+- snapshots/homeassistant/scripts.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/homekit_bridge_migration.md
+- docs/change_log.md
+
+Details:
+- Added script `tado_hot_water_auto`:
+  - returns `water_heater.hot_water` to `auto` schedule mode via `water_heater.set_operation_mode`
+- Added script `tado_hot_water_off`:
+  - turns `water_heater.hot_water` off via `water_heater.turn_off`
+- Added script `tado_hot_water_boost`:
+  - calls `tado.set_water_heater_timer`
+  - accepts `duration_minutes`
+  - defaults to `60` minutes
+- Documented the new scripts in the configuration reference and HomeKit migration runbook.
+
+Validation:
+- [ ] `ha core check`
+- [ ] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Intended to provide Tado-style `auto`, `off`, and timed boost controls in Home Assistant.
+
+Rollback:
+- Remove `tado_hot_water_auto`, `tado_hot_water_off`, and `tado_hot_water_boost` from `/homeassistant/scripts.yaml` and reload scripts.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-27 - Add Octopus gas rollover health-check automation
 
 Summary:

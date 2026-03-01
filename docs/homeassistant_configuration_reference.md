@@ -88,6 +88,9 @@ Policy reference:
 - `lighting_outside`
 - `lighting_wait_seasonal_offset`
 - `tado_gas_set_manual_baseline`
+- `tado_hot_water_auto`
+- `tado_hot_water_off`
+- `tado_hot_water_boost`
 
 ## Area ID Reference
 Use these exact IDs when targeting by area.
@@ -221,6 +224,26 @@ Operational intent:
 - Tado submission is sent as an integer (no decimal places).
 - Tado service schema in HA `2026.2.3` expects `config_entry` and `reading` (not `utility`/`date`).
 - Internal day tracking uses yesterday so submission cadence aligns with the `previous_*` Octopus data series.
+
+## Tado Hot Water Control
+- Canonical hot water entity:
+  - `water_heater.hot_water`
+- Tado-specific hot water actions available in HA `2026.2.3`:
+  - `water_heater.set_operation_mode` -> return to `auto`
+  - `water_heater.turn_off`
+  - `tado.set_water_heater_timer`
+- Added helper scripts:
+  - `tado_hot_water_auto`
+  - `tado_hot_water_off`
+  - `tado_hot_water_boost`
+- Usage:
+  - run `tado_hot_water_boost` with `duration_minutes` to mimic Tado app timed boost
+  - run `tado_hot_water_auto` to return to schedule mode
+  - run `tado_hot_water_off` to force off
+
+Operational note:
+- The generic Home Assistant `water_heater` representation does not match the Tado app model exactly.
+- Tado’s own HomeKit support does not support hot water control, so Apple Home may not present this entity in a useful way even when exposed through HA.
 
 ## Octopus Gas Rollover Monitoring
 - Automation: `octopus_energy_gas_rollover_health_daily_check`

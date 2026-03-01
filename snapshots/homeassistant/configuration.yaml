@@ -2,6 +2,102 @@
 # Loads default set of integrations. Do not remove.
 default_config:
 
+homeassistant:
+  customize:
+    # Canonical HomeKit room-light controls. Expose these only via the light bridge.
+    light.attic_lounge:
+      friendly_name: Attic Lounge Lights
+    light.davids_office:
+      friendly_name: David's Office Lights
+    light.dining_room:
+      friendly_name: Dining Room Lights
+    light.front_porch:
+      friendly_name: Front Porch Lights
+    light.guest_bedroom:
+      friendly_name: Guest Bedroom Lights
+    light.hallway:
+      friendly_name: Hallway Lights
+    light.landing:
+      friendly_name: Landing Lights
+    light.lounge:
+      friendly_name: Lounge Lights
+    light.main_bedroom:
+      friendly_name: Main Bedroom Lights
+    light.ren_s_bedroom:
+      friendly_name: Ren's Bedroom Lights
+    light.sarahs_office:
+      friendly_name: Sarah's Office Lights
+    light.side_hall:
+      friendly_name: Side Hall Lights
+
+    # Canonical Tado room-heating controls. Expose these only via the climate bridge.
+    climate.attic_lounge:
+      friendly_name: Attic Lounge Heating
+    climate.davids_office:
+      friendly_name: David's Office Heating
+    climate.dining_room:
+      friendly_name: Dining Room Heating
+    climate.guest_bedroom:
+      friendly_name: Guest Bedroom Heating
+    climate.hallway:
+      friendly_name: Hallway Heating
+    climate.landing:
+      friendly_name: Landing Heating
+    climate.lounge:
+      friendly_name: Lounge Heating
+    climate.main_bedroom:
+      friendly_name: Main Bedroom Heating
+    climate.nathaniels_bedroom:
+      friendly_name: Nathaniel's Bedroom Heating
+    climate.ren_s_bedroom:
+      friendly_name: Ren's Bedroom Heating
+    climate.sarahs_office:
+      friendly_name: Sarah's Office Heating
+    climate.toilet:
+      friendly_name: Toilet Heating
+
+homekit:
+  - name: HA Pilot Lights
+    port: 21063
+    filter:
+      include_entities:
+        - light.sarahs_office
+        - light.guest_bedroom
+        - light.ren_s_bedroom
+  - name: HA Lights
+    port: 21064
+    filter:
+      include_entities:
+        - light.attic_lounge
+        - light.davids_office
+        - light.dining_room
+        - light.front_porch
+        - light.guest_bedroom
+        - light.hallway
+        - light.landing
+        - light.lounge
+        - light.main_bedroom
+        - light.ren_s_bedroom
+        - light.sarahs_office
+        - light.side_hall
+  - name: HA Climate
+    port: 21065
+    filter:
+      include_entities:
+        - climate.attic_lounge
+        - climate.davids_office
+        - climate.dining_room
+        - climate.guest_bedroom
+        - climate.hallway
+        - climate.landing
+        - climate.lounge
+        - climate.main_bedroom
+        - climate.nathaniels_bedroom
+        - climate.ren_s_bedroom
+        - climate.sarahs_office
+        - climate.toilet
+        - water_heater.hot_water
+
 # Load frontend themes from the themes folder
 frontend:
   themes: !include_dir_merge_named themes

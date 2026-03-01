@@ -13,6 +13,7 @@ This repository is used to support Home Assistant setup, configuration, and oper
 ## Configuration Docs
 - `docs/lighting_reusable_components.md` - source-of-truth for reusable lighting scripts, area sets, profiles, and schedules.
 - `docs/homeassistant_configuration_reference.md` - current HA include layout, file ownership, automation/script inventory, and area ID reference.
+- `docs/homekit_bridge_migration.md` - HomeKit bridge rollout plan, exact include/exclude entity lists, and naming conventions.
 - `docs/codex_change_playbook.md` - request templates and change policy for future Codex updates.
 - `docs/change_log.md` - chronological record of config changes, validation status, and rollback notes.
 

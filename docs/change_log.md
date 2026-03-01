@@ -37,6 +37,126 @@ Implemented by:
 
 ---
 
+## 2026-03-01 - Prepare HomeKit bridge migration naming and runbook
+
+Summary:
+- Added canonical HomeKit-facing friendly names for room-level light and Tado climate entities.
+- Added a HomeKit bridge migration runbook with exact include lists, exclude lists, and rollout batches for the UI-managed bridges.
+- Added a YAML-managed pilot HomeKit bridge for the first three room-light entities.
+- Added a YAML-managed production `HA Lights` bridge for the full canonical room-light set.
+- Added a YAML-managed production `HA Climate` bridge for the canonical Tado room climates plus hot water.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- docs/homekit_bridge_migration.md
+- docs/homeassistant_configuration_reference.md
+- README.md
+- docs/change_log.md
+
+Details:
+- Added `homeassistant.customize` entries in `configuration.yaml` for HomeKit-exported entities.
+- Added a YAML-managed `homekit:` pilot bridge:
+  - `name: HA Pilot Lights`
+  - `port: 21063`
+  - `include_entities`:
+    - `light.sarahs_office`
+    - `light.guest_bedroom`
+    - `light.ren_s_bedroom`
+- Added a YAML-managed `homekit:` production light bridge:
+  - `name: HA Lights`
+  - `port: 21064`
+  - `include_entities`:
+    - `light.attic_lounge`
+    - `light.davids_office`
+    - `light.dining_room`
+    - `light.front_porch`
+    - `light.guest_bedroom`
+    - `light.hallway`
+    - `light.landing`
+    - `light.lounge`
+    - `light.main_bedroom`
+    - `light.ren_s_bedroom`
+    - `light.sarahs_office`
+    - `light.side_hall`
+- Added a YAML-managed `homekit:` production climate bridge:
+  - `name: HA Climate`
+  - `port: 21065`
+  - `include_entities`:
+    - `climate.attic_lounge`
+    - `climate.davids_office`
+    - `climate.dining_room`
+    - `climate.guest_bedroom`
+    - `climate.hallway`
+    - `climate.landing`
+    - `climate.lounge`
+    - `climate.main_bedroom`
+    - `climate.nathaniels_bedroom`
+    - `climate.ren_s_bedroom`
+    - `climate.sarahs_office`
+    - `climate.toilet`
+    - `water_heater.hot_water`
+- Room-level lighting entities now have explicit `Room Lights` friendly names:
+  - `light.attic_lounge`
+  - `light.davids_office`
+  - `light.dining_room`
+  - `light.front_porch`
+  - `light.guest_bedroom`
+  - `light.hallway`
+  - `light.landing`
+  - `light.lounge`
+  - `light.main_bedroom`
+  - `light.ren_s_bedroom`
+  - `light.sarahs_office`
+  - `light.side_hall`
+- Tado room-level climate entities now have explicit `Room Heating` friendly names:
+  - `climate.attic_lounge`
+  - `climate.davids_office`
+  - `climate.dining_room`
+  - `climate.guest_bedroom`
+  - `climate.hallway`
+  - `climate.landing`
+  - `climate.lounge`
+  - `climate.main_bedroom`
+  - `climate.nathaniels_bedroom`
+  - `climate.ren_s_bedroom`
+  - `climate.sarahs_office`
+  - `climate.toilet`
+- Added `docs/homekit_bridge_migration.md` as the source of truth for:
+  - exact bridge include lists
+  - explicit entity exclusions
+  - phased rollout order
+  - validation checklist
+- Implemented the pilot bridge in YAML because it is the supported automatable path for an exact include list from this repo.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Snapshot-to-live parity was clean before starting (`make verify`).
+  - Deployed updated `/homeassistant/configuration.yaml` with the HomeKit naming customizations.
+  - `ha core check` completed successfully on the HA host.
+  - Restarted Home Assistant Core to apply the new `homeassistant.customize` names.
+  - Added and deployed a YAML-managed HomeKit pilot bridge named `HA Pilot Lights` on port `21063`.
+  - Home Assistant imported the pilot bridge as config entry `01KJM7GT7ZSA1YFHAQNT6XMRX8` at `2026-03-01T08:16:29+00:00`.
+  - Added and deployed a YAML-managed HomeKit production light bridge named `HA Lights` on port `21064`.
+  - Home Assistant imported the production light bridge as config entry `01KJM82Q0N183PN4PB4106XJGY` at `2026-03-01T08:26:15+00:00`.
+  - Added and deployed a YAML-managed HomeKit production climate bridge named `HA Climate` on port `21065`.
+  - Home Assistant imported the production climate bridge as config entry `01KJMBKDHN9CMHHATPTR765HWE` at `2026-03-01T09:27:49+00:00`.
+  - Verified snapshot-to-live parity after deploy with `make verify` (no drift).
+
+Rollback:
+- Remove the `homeassistant.customize` block entries for the HomeKit-exported entities from `/homeassistant/configuration.yaml`.
+- Revert the HomeKit migration runbook and reference docs if they are no longer wanted.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-02-27 - Add Octopus gas rollover health-check automation
 
 Summary:

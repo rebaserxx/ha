@@ -1,6 +1,6 @@
 # Home Assistant Configuration Reference
 
-Last verified on 2026-02-27.
+Last verified on 2026-03-01.
 
 ## System Snapshot
 - Core version: `2026.2.3`
@@ -10,6 +10,8 @@ Last verified on 2026-02-27.
 ## Top-Level Configuration Layout
 `/config/configuration.yaml` currently includes:
 - `default_config:`
+- `homeassistant.customize:` for canonical HomeKit-exported room names
+- `homekit:` for the pilot HomeKit bridge (`HA Pilot Lights`)
 - `frontend` themes from `themes/` via `!include_dir_merge_named`
 - `automation: !include automations.yaml`
 - `script: !include scripts.yaml`
@@ -20,6 +22,10 @@ Last verified on 2026-02-27.
 ## Config Files and Ownership
 - `/config/configuration.yaml`
   - Root include map only (keep minimal).
+- `/config/configuration.yaml`
+  - Also defines HomeKit-facing friendly-name customizations for exported room lights and Tado climates.
+- `/config/configuration.yaml`
+  - Also defines the current YAML-managed HomeKit pilot bridge include list.
 - `/config/automations.yaml`
   - Contains light schedule automations.
 - `/config/scripts.yaml`
@@ -103,6 +109,78 @@ Use these exact IDs when targeting by area.
 - `nathaniel_s_bedroom` -> Nathaniel's Bedroom
 - `attic_lounge` -> Attic Lounge
 - `hot_water` -> Utilities
+
+## HomeKit Bridge Export Reference
+- Current pilot bridge is YAML-managed:
+  - `HA Pilot Lights`
+  - port `21063`
+  - include entities:
+    - `light.sarahs_office`
+    - `light.guest_bedroom`
+    - `light.ren_s_bedroom`
+- Current production light bridge is YAML-managed:
+  - `HA Lights`
+  - port `21064`
+  - include entities:
+    - `light.attic_lounge`
+    - `light.davids_office`
+    - `light.dining_room`
+    - `light.front_porch`
+    - `light.guest_bedroom`
+    - `light.hallway`
+    - `light.landing`
+    - `light.lounge`
+    - `light.main_bedroom`
+    - `light.ren_s_bedroom`
+    - `light.sarahs_office`
+    - `light.side_hall`
+- Current production climate bridge is YAML-managed:
+  - `HA Climate`
+  - port `21065`
+  - include entities:
+    - `climate.attic_lounge`
+    - `climate.davids_office`
+    - `climate.dining_room`
+    - `climate.guest_bedroom`
+    - `climate.hallway`
+    - `climate.landing`
+    - `climate.lounge`
+    - `climate.main_bedroom`
+    - `climate.nathaniels_bedroom`
+    - `climate.ren_s_bedroom`
+    - `climate.sarahs_office`
+    - `climate.toilet`
+    - `water_heater.hot_water`
+- Canonical naming rules:
+  - room lights -> `Room Lights`
+  - Tado thermostats -> `Room Heating`
+- Canonical room-light entities to expose:
+  - `light.attic_lounge`
+  - `light.davids_office`
+  - `light.dining_room`
+  - `light.front_porch`
+  - `light.guest_bedroom`
+  - `light.hallway`
+  - `light.landing`
+  - `light.lounge`
+  - `light.main_bedroom`
+  - `light.ren_s_bedroom`
+  - `light.sarahs_office`
+  - `light.side_hall`
+- Canonical Tado climate entities to expose:
+  - `climate.attic_lounge`
+  - `climate.davids_office`
+  - `climate.dining_room`
+  - `climate.guest_bedroom`
+  - `climate.hallway`
+  - `climate.landing`
+  - `climate.lounge`
+  - `climate.main_bedroom`
+  - `climate.nathaniels_bedroom`
+  - `climate.ren_s_bedroom`
+  - `climate.sarahs_office`
+  - `climate.toilet`
+- See `docs/homekit_bridge_migration.md` for the rollout order, exclude list, and validation checklist.
 
 ## Rules For Future Changes Via Codex
 1. Prefer changing wrappers over duplicating logic.

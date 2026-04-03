@@ -35,7 +35,7 @@
 
 - id: lighting_overnight_shutdown_0200
   alias: Lighting - Overnight Shutdown 02:00
-  description: Turn off common-area and outside lights at 2am while leaving bedrooms alone.
+  description: Turn off common-area, David's Office filament, and outside lights at 2am while leaving bedrooms alone.
   triggers:
     - trigger: time
       at: "02:00:00"
@@ -48,6 +48,11 @@
     - action: script.lighting_outside
       data:
         action: "off"
+        transition: 2
+    - action: light.turn_off
+      target:
+        entity_id: light.office_filament
+      data:
         transition: 2
   mode: single
 
@@ -223,7 +228,7 @@
 
 - id: lighting_common_lounge_off_2300_sun_thu
   alias: Lighting - Common + Lounge Off 23:00 Sun-Thu
-  description: Turn off common-area and Lounge lights at 23:00 Sunday-Thursday.
+  description: Turn off common-area, Lounge, and David's Office filament lights at 23:00 Sunday-Thursday.
   triggers:
     - trigger: time
       at: "23:00:00"
@@ -248,11 +253,16 @@
           - living_room
       data:
         transition: 3
+    - action: light.turn_off
+      target:
+        entity_id: light.office_filament
+      data:
+        transition: 3
   mode: single
 
 - id: lighting_common_lounge_off_2359_fri_sat
   alias: Lighting - Common + Lounge Off 23:59 Fri-Sat
-  description: Turn off common-area and Lounge lights at 23:59 Friday-Saturday.
+  description: Turn off common-area, Lounge, and David's Office filament lights at 23:59 Friday-Saturday.
   triggers:
     - trigger: time
       at: "23:59:00"
@@ -272,6 +282,11 @@
           - landing
           - side_hall
           - living_room
+      data:
+        transition: 3
+    - action: light.turn_off
+      target:
+        entity_id: light.office_filament
       data:
         transition: 3
   mode: single

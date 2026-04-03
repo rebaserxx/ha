@@ -94,6 +94,7 @@ Excluded by design:
 - Trigger: `02:00:00`
 - Actions:
   - call `script.lighting_common_areas` with `action: off`
+  - turn off `light.office_filament`
   - call `script.lighting_outside` with `action: off`
 
 Bedroom lights are intentionally not forced off.
@@ -155,8 +156,8 @@ Lounge is not in `script.lighting_common_areas`; it is separately targeted only 
   - `lighting_common_lounge_off_2300_sun_thu`
   - `lighting_common_lounge_off_2359_fri_sat`
 - Behavior:
-  - Sunday-Thursday at `23:00`: turn off common areas + Lounge
-  - Friday-Saturday at `23:59`: turn off common areas + Lounge
+  - Sunday-Thursday at `23:00`: turn off common areas + Lounge + `light.office_filament`
+  - Friday-Saturday at `23:59`: turn off common areas + Lounge + `light.office_filament`
 - Target areas:
   - common set (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
   - plus Lounge (`living_room`)

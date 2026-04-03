@@ -37,6 +37,45 @@ Implemented by:
 
 ---
 
+## 2026-04-03 - Include David's Office filament in nightly lights-off automations
+
+Summary:
+- Added David's Office filament light to the nightly lights-off routines so it shuts down with the rest of the house lighting.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Updated `lighting_common_lounge_off_2300_sun_thu`:
+  - added explicit `light.turn_off` for `light.office_filament`
+- Updated `lighting_common_lounge_off_2359_fri_sat`:
+  - added explicit `light.turn_off` for `light.office_filament`
+- Updated `lighting_overnight_shutdown_0200`:
+  - added explicit `light.turn_off` for `light.office_filament`
+- Existing bedroom exclusions remain unchanged.
+
+Validation:
+- [ ] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed updated `/homeassistant/automations.yaml`.
+  - `ha core check` on Home Assistant 2026.4.0 returned an internal validator `KeyError: 'triggers'` after parsing the automation list, so it did not provide a reliable pass/fail signal for this change.
+  - Restarted Home Assistant Core successfully.
+  - Post-restart live `automations.yaml` contains `light.office_filament` in `lighting_overnight_shutdown_0200`, `lighting_common_lounge_off_2300_sun_thu`, and `lighting_common_lounge_off_2359_fri_sat`.
+  - `make verify` no longer showed automation drift; remaining drift is only in stale `ha_core_info.txt` and `ha_info.txt` snapshots.
+
+Rollback:
+- Remove the explicit `light.office_filament` off actions from the three nightly lighting automations above.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
 ## 2026-03-01 - Add appliance dashboard for Home Connect appliances
 
 Summary:

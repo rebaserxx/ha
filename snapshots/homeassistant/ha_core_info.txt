@@ -10,6 +10,6 @@ machine: qemux86-64
 port: 8123
 ssl: false
 update_available: false
-version: 2026.2.3
-version_latest: 2026.2.3
+version: 2026.5.4
+version_latest: 2026.5.4
 watchdog: true

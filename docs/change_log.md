@@ -37,6 +37,105 @@ Implemented by:
 
 ---
 
+## 2026-05-24 - Implement Home Assistant review reliability fixes
+
+Summary:
+- Replaced the Tado-triggered hot water pump raw one-hour delay with a visible timer helper and timer-finished off automation.
+- Changed the post-sunrise light shutdown from all lights to explicit common/outdoor areas.
+- Made the appliance dashboard admin-only because it contains appliance power/stop/control entities.
+- Updated operational docs to reflect the current HA version, pump helper, and dashboard control policy.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/lighting_reusable_components.md
+- docs/change_log.md
+
+Details:
+- Added `timer.hot_water_pump_runtime` with a one-hour duration.
+- Updated `hot_water_pump_follow_tado_on_for_1h`:
+  - old behavior: turn pump on, wait one hour inside the automation, then turn pump off
+  - new behavior: turn pump on and start `timer.hot_water_pump_runtime`
+- Added `hot_water_pump_off_when_runtime_finishes` to turn the pump off when the timer finishes.
+- Updated `hot_water_pump_manual_auto_off_30m` so the 30-minute manual fallback does not turn the pump off while Tado hot water demand is on.
+- Updated `lighting_all_lights_off_after_sunrise_seasonal` to target common/outdoor areas instead of `entity_id: all`.
+- Changed the `kitchen-appliances` Lovelace dashboard to `require_admin: true`.
+- Left the water pump entity ID unchanged for deployment safety; rename `switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet` to `switch.hot_water_pump` in the HA UI/entity registry when convenient, then update YAML references.
+
+Validation:
+- [x] Created full HA backup before mutation
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [x] `make verify`
+- [ ] Manual test run completed
+- Notes:
+  - Pre-change backup slug: `7e1b9a23`
+  - `ha core check` completed successfully after deploying the staged YAML.
+  - Restarted Home Assistant Core successfully to load the YAML timer helper and dashboard metadata.
+  - Verified `timer.hot_water_pump_runtime` exists and is idle.
+  - Verified `automation.hot_water_turn_water_pump_off_when_runtime_finishes` exists and is enabled.
+  - `make verify` reported no drift after syncing snapshots from live HA.
+  - HA still reports the `no_current_backup` repair after this local full backup; off-host/protected backup setup remains a manual follow-up.
+
+Rollback:
+- Restore backup slug `7e1b9a23`, or revert the changed YAML sections and restart Home Assistant Core.
+- To rollback only the pump behavior, remove `timer.hot_water_pump_runtime`, remove `hot_water_pump_off_when_runtime_finishes`, and restore the one-hour delay inside `hot_water_pump_follow_tado_on_for_1h`.
+- To rollback only the sunrise lighting change, restore `entity_id: all` in `lighting_all_lights_off_after_sunrise_seasonal`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
+## 2026-04-06 - Expose Elgato Key Light Air through HomeKit
+
+Summary:
+- Synced the repo snapshots from live Home Assistant before editing.
+- Added the Elgato Key Light Air light entity to the YAML-managed `HA Lights` HomeKit bridge.
+- Updated the configuration reference to reflect the expanded HomeKit light export list.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Refreshed local snapshots with `make sync-ha`.
+- Confirmed the live entity id from Home Assistant state:
+  - `light.elgato_key_light_air`
+- Added `light.elgato_key_light_air` to:
+  - `homekit`
+  - bridge `HA Lights`
+  - `filter.include_entities`
+- Documented the extra non-room HomeKit light in the configuration reference.
+
+Validation:
+- [x] Backup remote `/homeassistant/configuration.yaml`
+- [ ] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] `make verify`
+- Notes:
+  - Backup created: `/homeassistant/configuration.yaml.bak.1775466707`
+  - `ha core check` failed on a pre-existing automation validator error (`KeyError: 'triggers'`) unrelated to this `configuration.yaml` change.
+  - Home Assistant Core restarted successfully after deployment and the live config read-back confirmed `light.elgato_key_light_air` in the `HA Lights` bridge.
+
+Rollback:
+- Restore `/homeassistant/configuration.yaml.bak.1775466707` to `/homeassistant/configuration.yaml`.
+- Remove `light.elgato_key_light_air` from the `HA Lights` include list.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-04-03 - Include David's Office filament in nightly lights-off automations
 
 Summary:
@@ -75,6 +174,95 @@ Requested by:
 
 Implemented by:
 - Codex
+
+---
+
+## 2026-03-01 - Add manual water pump 30-minute auto-off automation
+
+Summary:
+- Added an automation to turn off the hot water pump 30 minutes after a manual/physical turn-on.
+- Automation-triggered pump activations are excluded so existing scheduled logic is not interrupted.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added automation `hot_water_pump_manual_auto_off_30m`:
+  - trigger: `switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet` from `off` to `on`
+  - condition: `trigger.to_state.context.parent_id is none` (manual/physical context)
+  - action: wait `00:30:00`, then turn pump off if still on
+  - mode: `restart` so repeated manual toggles reset the timer
+- Kept existing `hot_water_pump_follow_tado_on_for_1h` unchanged.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed updated `/homeassistant/automations.yaml`.
+  - `ha core check` completed successfully on the HA host.
+  - Reloaded automations via API.
+  - Verified snapshot-to-live parity with `make verify` (no drift).
+
+Rollback:
+- Remove automation `hot_water_pump_manual_auto_off_30m` from `/config/automations.yaml`.
+- Reload automations.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
+## 2026-03-01 - Add explicit Alexa exposure filter for Home Assistant Cloud
+
+Summary:
+- Added a YAML-managed Home Assistant Cloud Alexa exposure filter.
+- Limited the initial Alexa discovery set to canonical room lights, canonical Tado room heating entities, and hot water.
+- Kept TVs, appliances, helper switches, scenes, and non-Tado climate devices out of Alexa for a cleaner first-time import.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- Added `cloud.alexa.filter.include_entities` in `configuration.yaml` for:
+  - canonical room light entities
+  - canonical Tado climate entities
+  - `water_heater.hot_water`
+- Added `cloud.alexa.entity_config` names so Alexa sees stable, room-oriented names.
+- Deliberately excluded:
+  - Home Connect appliances
+  - media players / TVs
+  - Meaco / other non-Tado climate devices
+  - helper switches, sensors, and scenes
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core
+- [ ] Manual test run completed
+- Notes:
+  - Deployed updated `/homeassistant/configuration.yaml`.
+  - `ha core check` completed successfully on the HA host.
+  - Restarted Home Assistant Core and confirmed the live config contains `cloud.alexa`.
+  - Verified snapshot-to-live parity with `make verify` (no drift).
+
+Rollback:
+- Remove the `cloud:` Alexa block from `/config/configuration.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
 
 ## 2026-03-01 - Add appliance dashboard for Home Connect appliances
 

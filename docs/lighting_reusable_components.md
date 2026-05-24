@@ -1,6 +1,6 @@
 # Reusable Lighting Components
 
-Last verified against live Home Assistant config on 2026-02-22.
+Last verified against live Home Assistant config on 2026-05-24.
 
 ## Goal
 Provide reusable lighting scripts that can be called from automations without repeating area targets and profile logic.
@@ -136,9 +136,18 @@ Lounge is not in `script.lighting_common_areas`; it is separately targeted only 
     - Summer (Jun-Aug): 15 minutes
     - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes
     - Winter (Dec-Feb): 45 minutes
-  - call `light.turn_off` targeting `entity_id: all` with `transition: 2`
+  - call `light.turn_off` targeting common/outdoor areas only with `transition: 2`:
+    - `attic_lounge`
+    - `dining_room`
+    - `kitchen`
+    - `hallway`
+    - `landing`
+    - `side_hall`
+    - `living_room`
+    - `front_porch`
 - Offsets are centralized in script defaults; automation passes direction only.
 - Mode: `restart` (manual re-runs replace any in-progress delayed run).
+Bedroom and task lights are intentionally not forced off by this sunrise automation.
 
 ### Late Evening Common + Lounge Dim (Week Split)
 - IDs:

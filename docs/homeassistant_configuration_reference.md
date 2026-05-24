@@ -1,9 +1,9 @@
 # Home Assistant Configuration Reference
 
-Last verified on 2026-03-01.
+Last verified on 2026-05-24.
 
 ## System Snapshot
-- Core version: `2026.2.3`
+- Core version: `2026.5.4`
 - Host in this environment: `192.168.1.191`
 - Main config root on HA host: `/config`
 
@@ -11,6 +11,7 @@ Last verified on 2026-03-01.
 `/config/configuration.yaml` currently includes:
 - `default_config:`
 - `homeassistant.customize:` for canonical HomeKit-exported room names
+- `cloud.alexa:` for the explicit Home Assistant Cloud Alexa exposure list
 - `homekit:` for the active production HomeKit bridges (`HA Lights`, `HA Climate`)
 - `lovelace:` for the tracked YAML appliance dashboard (`Appliances`)
 - `frontend` themes from `themes/` via `!include_dir_merge_named`
@@ -19,12 +20,15 @@ Last verified on 2026-03-01.
 - `scene: !include scenes.yaml`
 - `input_number:` (`tado_gas_meter_register_m3`)
 - `input_datetime:` (`tado_gas_meter_last_submission_date`)
+- `timer:` (`hot_water_pump_runtime`)
 
 ## Config Files and Ownership
 - `/config/configuration.yaml`
   - Root include map only (keep minimal).
 - `/config/configuration.yaml`
   - Also defines HomeKit-facing friendly-name customizations for exported room lights and Tado climates.
+- `/config/configuration.yaml`
+  - Also defines the Home Assistant Cloud Alexa include list and per-entity names.
 - `/config/configuration.yaml`
   - Also defines the current YAML-managed HomeKit bridge include lists.
 - `/config/automations.yaml`
@@ -37,6 +41,8 @@ Last verified on 2026-03-01.
   - YAML Lovelace dashboard for Home Connect appliances.
 - `/config/configuration.yaml`
   - Also defines helper entities used by the Tado gas meter automation.
+- `/config/configuration.yaml`
+  - Also defines the hot water pump runtime timer helper.
 
 ## Custom Integrations Installed (Live Server)
 Verified on 2026-02-22 from `/homeassistant/custom_components`:
@@ -81,6 +87,8 @@ Policy reference:
 - `lighting_front_porch_on_0620_presunrise`
 - `lighting_front_porch_off_at_sunrise`
 - `hot_water_pump_follow_tado_on_for_1h`
+- `hot_water_pump_off_when_runtime_finishes`
+- `hot_water_pump_manual_auto_off_30m`
 - `tado_gas_meter_reading_daily_from_octopus`
 - `octopus_energy_gas_rollover_health_daily_check`
 
@@ -101,7 +109,7 @@ Policy reference:
 - YAML dashboards:
   - `Appliances`
     - file: `/config/dashboards/appliances.yaml`
-    - purpose: ovens, dishwasher, and dryer status, remaining time, and safe controls
+    - purpose: ovens, dishwasher, and dryer status, remaining time, and admin-only controls
 
 ## Area ID Reference
 Use these exact IDs when targeting by area.
@@ -132,6 +140,7 @@ Use these exact IDs when targeting by area.
     - `light.attic_lounge`
     - `light.davids_office`
     - `light.dining_room`
+    - `light.elgato_key_light_air`
     - `light.front_porch`
     - `light.guest_bedroom`
     - `light.hallway`
@@ -174,6 +183,8 @@ Use these exact IDs when targeting by area.
   - `light.ren_s_bedroom`
   - `light.sarahs_office`
   - `light.side_hall`
+- Additional HomeKit-only light entities currently exposed:
+  - `light.elgato_key_light_air`
 - Canonical Tado climate entities to expose:
   - `climate.attic_lounge`
   - `climate.davids_office`
@@ -188,6 +199,40 @@ Use these exact IDs when targeting by area.
   - `climate.sarahs_office`
   - `climate.toilet`
 - See `docs/homekit_bridge_migration.md` for the rollout order, exclude list, and validation checklist.
+
+## Alexa Exposure Reference
+- Home Assistant Cloud Alexa exposure is YAML-managed under `cloud.alexa`.
+- Current Alexa include entities:
+  - `light.attic_lounge`
+  - `light.davids_office`
+  - `light.dining_room`
+  - `light.front_porch`
+  - `light.guest_bedroom`
+  - `light.hallway`
+  - `light.landing`
+  - `light.lounge`
+  - `light.main_bedroom`
+  - `light.ren_s_bedroom`
+  - `light.sarahs_office`
+  - `light.side_hall`
+  - `climate.attic_lounge`
+  - `climate.davids_office`
+  - `climate.dining_room`
+  - `climate.guest_bedroom`
+  - `climate.hallway`
+  - `climate.landing`
+  - `climate.lounge`
+  - `climate.main_bedroom`
+  - `climate.nathaniels_bedroom`
+  - `climate.ren_s_bedroom`
+  - `climate.sarahs_office`
+  - `climate.toilet`
+  - `water_heater.hot_water`
+- Deliberately excluded from Alexa in the initial pass:
+  - media players and TVs
+  - Home Connect appliances
+  - Meaco / other non-Tado climate devices
+  - helper switches, child locks, sensors, and scenes
 
 ## Rules For Future Changes Via Codex
 1. Prefer changing wrappers over duplicating logic.
@@ -217,6 +262,12 @@ Tracking guidance:
 - Helpers:
   - `input_number.tado_gas_meter_register_m3` (running cumulative register value)
   - `input_datetime.tado_gas_meter_last_submission_date` (idempotency guard)
+
+## Hot Water Pump Runtime
+- The Tado hot water demand automation starts the Meross water pump and `timer.hot_water_pump_runtime` for one hour.
+- `hot_water_pump_off_when_runtime_finishes` turns the pump off when the timer finishes.
+- `hot_water_pump_manual_auto_off_30m` still protects manual/physical starts, but does not turn the pump off while `binary_sensor.hot_water_power` is on.
+- Current pump entity is still the integration-generated `switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet`; rename it to `switch.hot_water_pump` in the entity registry/UI when convenient, then update YAML references.
 - Manual correction form:
   - Script: `tado_gas_set_manual_baseline`
   - Usage: run from UI with `manual_reading` (integer) and optional `submission_date`

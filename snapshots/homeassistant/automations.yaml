@@ -153,7 +153,7 @@
 
 - id: lighting_all_lights_off_after_sunrise_seasonal
   alias: Lighting - All Lights Off After Sunrise (Seasonal Daily)
-  description: Turn off all lights after sunrise every day using seasonal offsets from a common script.
+  description: Turn off common-area and outside lights after sunrise every day using seasonal offsets, while leaving bedrooms and task lights alone.
   triggers:
     - trigger: sun
       event: sunrise
@@ -164,7 +164,15 @@
         offset_direction: "plus"
     - action: light.turn_off
       target:
-        entity_id: all
+        area_id:
+          - attic_lounge
+          - dining_room
+          - kitchen
+          - hallway
+          - landing
+          - side_hall
+          - living_room
+          - front_porch
       data:
         transition: 2
   mode: restart
@@ -409,25 +417,60 @@
 
 - id: hot_water_pump_follow_tado_on_for_1h
   alias: Hot Water - Run Water Pump For 1 Hour When Tado Turns On
-  description: When Tado hot water power demand turns on, run the Meross water pump for one hour.
+  description: When Tado hot water power demand turns on, run the Meross water pump and start a visible one-hour runtime timer.
   triggers:
     - trigger: state
       entity_id: binary_sensor.hot_water_power
       from: "off"
       to: "on"
-  conditions:
-    - condition: state
-      entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
-      state: "off"
+  conditions: []
   actions:
     - action: switch.turn_on
       target:
         entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
-    - delay: "01:00:00"
+    - action: timer.start
+      target:
+        entity_id: timer.hot_water_pump_runtime
+  mode: single
+
+- id: hot_water_pump_off_when_runtime_finishes
+  alias: Hot Water - Turn Water Pump Off When Runtime Finishes
+  description: Turn off the Meross water pump when the Tado-triggered one-hour runtime timer finishes.
+  triggers:
+    - trigger: event
+      event_type: timer.finished
+      event_data:
+        entity_id: timer.hot_water_pump_runtime
+  conditions: []
+  actions:
     - action: switch.turn_off
       target:
         entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
   mode: single
+
+- id: hot_water_pump_manual_auto_off_30m
+  alias: Hot Water - Manual Water Pump Auto Off After 30 Minutes
+  description: If the water pump is turned on manually or physically (not by an automation), turn it off after 30 minutes.
+  triggers:
+    - trigger: state
+      entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
+      from: "off"
+      to: "on"
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.to_state.context.parent_id is none }}"
+  actions:
+    - delay: "00:30:00"
+    - condition: state
+      entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
+      state: "on"
+    - condition: state
+      entity_id: binary_sensor.hot_water_power
+      state: "off"
+    - action: switch.turn_off
+      target:
+        entity_id: switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet
+  mode: restart
 
 - id: tado_gas_meter_reading_daily_from_octopus
   alias: Tado - Submit Daily Gas Meter Reading From Octopus

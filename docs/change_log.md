@@ -37,6 +37,119 @@ Implemented by:
 
 ---
 
+## 2026-05-27 - Rename hot water pump, add recorder retention, and clean stale backups
+
+Summary:
+- Renamed the Meross water pump entity from the generated integration ID to `switch.hot_water_pump`.
+- Updated hot-water pump automations to use the canonical entity ID.
+- Added bounded recorder retention and diagnostic sensor exclusions.
+- Updated operational docs to include Watchman and current backup cleanup state.
+- Removed stale ad-hoc `.bak.*` files older than seven days after confirming HA backups.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- snapshots/homeassistant/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/outstanding_homeassistant_review_steps.md
+- docs/change_log.md
+- live `/homeassistant/.storage/core.entity_registry`
+
+Details:
+- Added `recorder.purge_keep_days: 21` and `commit_interval: 30`.
+- Excluded common high-churn diagnostic entity globs:
+  - `sensor.*_rssi`
+  - `sensor.*_linkquality`
+  - `sensor.*_signal_strength`
+  - `sensor.*_last_seen`
+  - `sensor.*_uptime`
+- Updated these automations to use `switch.hot_water_pump`:
+  - `hot_water_pump_follow_tado_on_for_1h`
+  - `hot_water_pump_off_when_runtime_finishes`
+  - `hot_water_pump_manual_auto_off_30m`
+- Confirmed custom integrations now documented include:
+  - `hacs`
+  - `meross_lan`
+  - `octopus_energy`
+  - `watchman`
+- Deleted stale ad-hoc backup files:
+  - `/homeassistant/.storage/core.area_registry.bak.1771765942`
+  - `/homeassistant/.storage/core.config_entries.bak.`
+  - `/homeassistant/.storage/core.config_entries.bak.1772359078`
+  - `/homeassistant/.storage/core.device_registry.bak.`
+  - `/homeassistant/.storage/core.device_registry.bak.1771765942`
+  - `/homeassistant/.storage/core.device_registry.bak.1771766500`
+  - `/homeassistant/.storage/core.device_registry.bak.1772359078`
+  - `/homeassistant/.storage/core.entity_registry.bak.1771782666`
+  - `/homeassistant/.storage/core.entity_registry.bak.1771782865`
+  - `/homeassistant/.storage/homekit.01KJM7GT7ZSA1YFHAQNT6XMRX8.aids.bak.1772359078`
+  - `/homeassistant/.storage/homekit.01KJM7GT7ZSA1YFHAQNT6XMRX8.iids.bak.1772359078`
+  - `/homeassistant/.storage/homekit.01KJM7GT7ZSA1YFHAQNT6XMRX8.state.bak.1772359078`
+  - `/homeassistant/automations.yaml.bak.1771878515`
+  - `/homeassistant/automations.yaml.bak.1771880143`
+  - `/homeassistant/automations.yaml.bak.1771959359`
+  - `/homeassistant/automations.yaml.bak.1772212188`
+  - `/homeassistant/automations.yaml.bak.1772733807`
+  - `/homeassistant/configuration.yaml.bak.1771959359`
+  - `/homeassistant/configuration.yaml.bak.1772351853`
+  - `/homeassistant/configuration.yaml.bak.1772352870`
+  - `/homeassistant/configuration.yaml.bak.1772353477`
+  - `/homeassistant/configuration.yaml.bak.1772357168`
+  - `/homeassistant/configuration.yaml.bak.1772358943`
+  - `/homeassistant/configuration.yaml.bak.1772361253`
+  - `/homeassistant/configuration.yaml.bak.1772361703`
+  - `/homeassistant/configuration.yaml.bak.1772366020`
+  - `/homeassistant/configuration.yaml.bak.1775466707`
+  - `/homeassistant/scripts.yaml.bak.1771761051`
+  - `/homeassistant/scripts.yaml.bak.1771765942`
+  - `/homeassistant/scripts.yaml.bak.1771960650`
+  - `/homeassistant/scripts.yaml.bak.1772358418`
+
+Validation:
+- [x] Confirmed available HA backups
+- [x] Created fresh full HA backup before mutation
+- [x] Created file-level backups before live edits
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] `make verify`
+- [ ] Manual hot-water pump test completed
+- Notes:
+  - Confirmed automatic backups are configured for both local Supervisor storage and Home Assistant Cloud (`hassio.local`, `cloud.cloud`).
+  - Confirmed the last completed automatic backup was `2026-05-27T04:54:15+01:00`.
+  - Confirmed backup slug `974412a6` exists from automatic backup on 2026-05-27.
+  - Created pre-change backup slug: `64e63c68`.
+  - Created file backups:
+    - `/homeassistant/configuration.yaml.bak.1779908696`
+    - `/homeassistant/automations.yaml.bak.1779908696`
+    - `/homeassistant/.storage/core.entity_registry.bak.1779908696`
+  - `ha core check` completed successfully before and after the registry rename.
+  - Restarted Home Assistant Core successfully after editing the entity registry.
+  - Live read-back confirmed `recorder:` in `/homeassistant/configuration.yaml`.
+  - Live read-back confirmed hot-water pump automations use `switch.hot_water_pump`.
+  - Live entity registry read-back confirmed the Meross outlet entity is now `switch.hot_water_pump`.
+  - Remaining ad-hoc `.bak.*` files are today's rollback files only:
+    - `/homeassistant/.storage/core.entity_registry.bak.1779908696`
+    - `/homeassistant/automations.yaml.bak.1779908696`
+    - `/homeassistant/configuration.yaml.bak.1779905655`
+    - `/homeassistant/configuration.yaml.bak.1779906578`
+    - `/homeassistant/configuration.yaml.bak.1779908696`
+
+Rollback:
+- Preferred: restore HA backup slug `64e63c68`.
+- File-level rollback:
+  - stop Home Assistant Core
+  - restore `/homeassistant/.storage/core.entity_registry.bak.1779908696` to `/homeassistant/.storage/core.entity_registry`
+  - restore `/homeassistant/configuration.yaml.bak.1779908696` to `/homeassistant/configuration.yaml`
+  - restore `/homeassistant/automations.yaml.bak.1779908696` to `/homeassistant/automations.yaml`
+  - start Home Assistant Core
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-05-27 - Expose kitchen Ecostrad heater through HomeKit
 
 Summary:

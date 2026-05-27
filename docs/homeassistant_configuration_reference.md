@@ -12,6 +12,7 @@ Last verified on 2026-05-24.
 - `default_config:`
 - `homeassistant.customize:` for canonical HomeKit-exported room names
 - `cloud.alexa:` for the explicit Home Assistant Cloud Alexa exposure list
+- `recorder:` for bounded history retention and high-churn diagnostic sensor exclusions
 - `homekit:` for the active production HomeKit bridges (`HA Lights`, `HA Climate`)
 - `lovelace:` for the tracked YAML appliance dashboard (`Appliances`)
 - `frontend` themes from `themes/` via `!include_dir_merge_named`
@@ -29,6 +30,8 @@ Last verified on 2026-05-24.
   - Also defines HomeKit-facing friendly-name customizations for exported room lights and Tado climates.
 - `/config/configuration.yaml`
   - Also defines the Home Assistant Cloud Alexa include list and per-entity names.
+- `/config/configuration.yaml`
+  - Also defines recorder retention and exclusions.
 - `/config/configuration.yaml`
   - Also defines the current YAML-managed HomeKit bridge include lists.
 - `/config/automations.yaml`
@@ -49,6 +52,7 @@ Verified on 2026-02-22 from `/homeassistant/custom_components`:
 - `hacs`
 - `meross_lan`
 - `octopus_energy`
+- `watchman`
 
 Operational note:
 - Custom integrations are expected and currently in use; startup warnings about "not tested by Home Assistant" are normal for these components.
@@ -61,12 +65,21 @@ Verified on 2026-02-22 from `/homeassistant/.storage/repairs.issue_registry`:
 - `octopus_energy` -> `free_electricity_session_binary_sensor_deprecated` (dismissed for `2026.2.3`)
 
 ## Backup And Rollback Artifacts On Server
-Current ad-hoc backup files observed on 2026-02-22:
-- `/homeassistant/scripts.yaml.bak.1771761051`
-- `/homeassistant/scripts.yaml.bak.1771765942`
-- `/homeassistant/.storage/core.area_registry.bak.1771765942`
-- `/homeassistant/.storage/core.device_registry.bak.1771765942`
-- `/homeassistant/.storage/core.device_registry.bak.1771766500`
+Backup status verified on 2026-05-27:
+- Automatic backups are configured with both local Supervisor storage and Home Assistant Cloud:
+  - `hassio.local`
+  - `cloud.cloud`
+- Last completed automatic backup: `2026-05-27T04:54:15+01:00`.
+- Automatic backup retention is configured for 3 copies.
+- A local full pre-change backup was created for the 2026-05-27 pump/recorder cleanup:
+  - slug: `64e63c68`
+- Current ad-hoc backup files retained on the live server:
+  - `/homeassistant/.storage/core.entity_registry.bak.1779908696`
+  - `/homeassistant/automations.yaml.bak.1779908696`
+  - `/homeassistant/configuration.yaml.bak.1779905655`
+  - `/homeassistant/configuration.yaml.bak.1779906578`
+  - `/homeassistant/configuration.yaml.bak.1779908696`
+- Old ad-hoc `.bak.*` files were cleaned on 2026-05-27 after confirming available HA backups.
 
 Policy reference:
 - See `docs/codex_change_playbook.md` backup lifecycle policy for retention and cleanup.
@@ -285,7 +298,7 @@ Tracking guidance:
 - The Tado hot water demand automation starts the Meross water pump and `timer.hot_water_pump_runtime` for one hour.
 - `hot_water_pump_off_when_runtime_finishes` turns the pump off when the timer finishes.
 - `hot_water_pump_manual_auto_off_30m` still protects manual/physical starts, but does not turn the pump off while `binary_sensor.hot_water_power` is on.
-- Current pump entity is still the integration-generated `switch.smart_switch_2210176177851451030248e1e9aba3d4_outlet`; rename it to `switch.hot_water_pump` in the entity registry/UI when convenient, then update YAML references.
+- Current pump entity is `switch.hot_water_pump`.
 - Manual correction form:
   - Script: `tado_gas_set_manual_baseline`
   - Usage: run from UI with `manual_reading` (integer) and optional `submission_date`

@@ -37,6 +37,52 @@ Implemented by:
 
 ---
 
+## 2026-05-27 - Add backup stale daily alert
+
+Summary:
+- Added a daily persistent-notification health check for automatic Home Assistant backups.
+- Marked the backup stale alert stage as implemented in the dashboard and automation plan.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/dashboard_automation_plan.md
+- docs/change_log.md
+
+Details:
+- Added automation `system_backup_stale_daily_check`.
+- Runs daily at `09:00`.
+- Creates persistent notification `system_backup_health` if:
+  - `sensor.backup_last_successful_automatic_backup` is missing or older than 36 hours
+  - `sensor.backup_backup_manager_state` is unavailable or error-like
+- Dismisses `system_backup_health` automatically when the backup check is healthy.
+- Notification message includes last successful backup, backup age, last attempted backup, next scheduled backup, and backup manager state.
+
+Validation:
+- [x] Backup remote `/homeassistant/automations.yaml`
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] Live read-back of automation
+- [x] `make verify`
+- [ ] Manual trigger/test completed
+- Notes:
+  - Automation backup created: `/homeassistant/automations.yaml.bak.1779911495`
+  - `ha core check` completed successfully after deployment.
+  - Restarted Home Assistant Core successfully because this host's `ha` CLI does not provide an automation reload command.
+  - Live read-back confirmed `system_backup_stale_daily_check` and notification id `system_backup_health` in `/homeassistant/automations.yaml`.
+  - `make verify` reported no drift.
+
+Rollback:
+- Restore `/homeassistant/automations.yaml.bak.1779911495` to `/homeassistant/automations.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-05-27 - Add Home Health dashboard
 
 Summary:

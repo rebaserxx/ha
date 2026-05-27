@@ -571,3 +571,47 @@
           data:
             notification_id: octopus_energy_gas_rollover_health
   mode: single
+
+- id: system_backup_stale_daily_check
+  alias: System - Backup Stale Daily Check
+  description: Alert if Home Assistant automatic backups are stale or backup manager sensors are unhealthy.
+  triggers:
+    - trigger: time
+      at: "09:00:00"
+  conditions: []
+  actions:
+    - variables:
+        last_success_raw: "{{ states('sensor.backup_last_successful_automatic_backup') }}"
+        last_attempted_raw: "{{ states('sensor.backup_last_attempted_automatic_backup') }}"
+        next_backup_raw: "{{ states('sensor.backup_next_scheduled_automatic_backup') }}"
+        manager_state: "{{ states('sensor.backup_backup_manager_state') }}"
+        last_success_ts: >-
+          {% if last_success_raw in ['unknown', 'unavailable', 'none', 'None', ''] %}
+            0
+          {% else %}
+            {{ as_timestamp(last_success_raw, 0) }}
+          {% endif %}
+        backup_age_hours: "{{ ((as_timestamp(now()) - (last_success_ts | float(0))) / 3600) | round(1) }}"
+        backup_stale: "{{ (last_success_ts | float(0)) == 0 or (as_timestamp(now()) - (last_success_ts | float(0))) > 36 * 3600 }}"
+        manager_unhealthy: "{{ manager_state in ['unknown', 'unavailable', 'none', 'None', '', 'failed', 'error'] }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ backup_stale or manager_unhealthy }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: system_backup_health
+                title: Home Assistant Backup Check Failed
+                message: >-
+                  Last successful automatic backup: {{ last_success_raw }}.
+                  Backup age: {{ backup_age_hours }} hours.
+                  Last attempted backup: {{ last_attempted_raw }}.
+                  Next scheduled backup: {{ next_backup_raw }}.
+                  Backup manager state: {{ manager_state }}.
+                  Check Settings > System > Backups and confirm Home Assistant Cloud backup status.
+      default:
+        - action: persistent_notification.dismiss
+          data:
+            notification_id: system_backup_health
+  mode: single

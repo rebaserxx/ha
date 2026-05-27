@@ -74,6 +74,9 @@ Review focus:
 Purpose:
 - Alert if automatic backups stop completing.
 
+Status:
+- Implemented on 2026-05-27.
+
 Behavior:
 - Daily check around `09:00`.
 - Persistent notification if the last successful backup is older than 36 hours.

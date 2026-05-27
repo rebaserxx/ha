@@ -167,9 +167,22 @@ Use these exact IDs when targeting by area.
     - `climate.sarahs_office`
     - `climate.toilet`
     - `water_heater.hot_water`
+- Current production air-conditioning bridge is YAML-managed:
+  - `HA Air Conditioning`
+  - port `21066`
+  - include entities:
+    - `climate.nathaniel_meacocool_mc_series_12000_pro`
+    - `climate.meacocool_mc_series_12000_pro_2`
+- Current production kitchen electric heating bridge is YAML-managed:
+  - `HA Kitchen Heating`
+  - port `21067`
+  - include entities:
+    - `climate.ecostrad_klasse_iq`
 - Canonical naming rules:
   - room lights -> `Room Lights`
   - Tado thermostats -> `Room Heating`
+  - Meaco air conditioners -> `Room AC`
+  - Ecostrad kitchen heater -> `Kitchen Ecostrad Heater`
 - Canonical room-light entities to expose:
   - `light.attic_lounge`
   - `light.davids_office`
@@ -198,6 +211,11 @@ Use these exact IDs when targeting by area.
   - `climate.ren_s_bedroom`
   - `climate.sarahs_office`
   - `climate.toilet`
+- Canonical Meaco AC climate entities to expose:
+  - `climate.nathaniel_meacocool_mc_series_12000_pro`
+  - `climate.meacocool_mc_series_12000_pro_2`
+- Canonical kitchen electric heater entity to expose:
+  - `climate.ecostrad_klasse_iq`
 - See `docs/homekit_bridge_migration.md` for the rollout order, exclude list, and validation checklist.
 
 ## Alexa Exposure Reference

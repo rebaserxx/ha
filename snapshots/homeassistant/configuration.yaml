@@ -56,6 +56,16 @@ homeassistant:
     climate.toilet:
       friendly_name: Toilet Heating
 
+    # HomeKit air-conditioning controls. Expose these only via the AC bridge.
+    climate.nathaniel_meacocool_mc_series_12000_pro:
+      friendly_name: Nathaniel's Bedroom AC
+    climate.meacocool_mc_series_12000_pro_2:
+      friendly_name: Ren's Bedroom AC
+
+    # HomeKit kitchen electric heating control. Expose this only via its own bridge.
+    climate.ecostrad_klasse_iq:
+      friendly_name: Kitchen Ecostrad Heater
+
 cloud:
   alexa:
     filter:
@@ -197,6 +207,17 @@ homekit:
         - climate.sarahs_office
         - climate.toilet
         - water_heater.hot_water
+  - name: HA Air Conditioning
+    port: 21066
+    filter:
+      include_entities:
+        - climate.nathaniel_meacocool_mc_series_12000_pro
+        - climate.meacocool_mc_series_12000_pro_2
+  - name: HA Kitchen Heating
+    port: 21067
+    filter:
+      include_entities:
+        - climate.ecostrad_klasse_iq
 
 # Load frontend themes from the themes folder
 frontend:

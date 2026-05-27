@@ -37,6 +37,107 @@ Implemented by:
 
 ---
 
+## 2026-05-27 - Expose kitchen Ecostrad heater through HomeKit
+
+Summary:
+- Added a dedicated HomeKit bridge for the kitchen Ecostrad Klasse iQ electric heater.
+- Kept the Ecostrad heater separate from the existing Tado heating bridge because it is a different integration and currently reports an `unknown` climate state.
+- Added an explicit HomeKit-facing name so Apple Home and Siri can distinguish it from the Tado room heating controls.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/homekit_bridge_migration.md
+- docs/change_log.md
+
+Details:
+- Added HomeKit friendly-name customization:
+  - `climate.ecostrad_klasse_iq` -> `Kitchen Ecostrad Heater`
+- Added YAML-managed HomeKit bridge:
+  - name: `HA Kitchen Heating`
+  - port: `21067`
+  - include entities:
+    - `climate.ecostrad_klasse_iq`
+- Documented that Apple Home is expected to expose this as a simple heating thermostat with off/heat and target temperature. The Ecostrad `eco` preset may not appear.
+
+Validation:
+- [x] Backup remote `/homeassistant/configuration.yaml`
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] `make verify`
+- [ ] Manual Apple Home pairing/test completed
+- Notes:
+  - Backup created: `/homeassistant/configuration.yaml.bak.1779906578`
+  - `ha core check` completed successfully.
+  - Restarted Home Assistant Core successfully.
+  - Synced snapshots from live Home Assistant after deployment.
+  - `make verify` reported no drift after syncing.
+  - Live state confirmed `climate.ecostrad_klasse_iq` is named `Kitchen Ecostrad Heater` with `off`/`heat` modes.
+
+Rollback:
+- Restore `/homeassistant/configuration.yaml.bak.1779906578` to `/homeassistant/configuration.yaml`, or remove the `HA Kitchen Heating` HomeKit bridge and the Ecostrad friendly-name customization from `/homeassistant/configuration.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
+## 2026-05-27 - Expose bedroom Meaco AC units through HomeKit
+
+Summary:
+- Added a dedicated HomeKit bridge for Ren's and Nathaniel's Meaco air-conditioning units.
+- Kept AC controls separate from the existing Tado heating bridge to avoid pairing/cache issues.
+- Added explicit HomeKit-facing names so Apple Home and Siri can distinguish AC from room heating.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/homekit_bridge_migration.md
+- docs/change_log.md
+
+Details:
+- Added HomeKit friendly-name customizations:
+  - `climate.nathaniel_meacocool_mc_series_12000_pro` -> `Nathaniel's Bedroom AC`
+  - `climate.meacocool_mc_series_12000_pro_2` -> `Ren's Bedroom AC`
+- Added YAML-managed HomeKit bridge:
+  - name: `HA Air Conditioning`
+  - port: `21066`
+  - include entities:
+    - `climate.nathaniel_meacocool_mc_series_12000_pro`
+    - `climate.meacocool_mc_series_12000_pro_2`
+- Documented that Apple Home is expected to expose these as simple cooling thermostat controls with off/cool and target temperature, not necessarily advanced Meaco features.
+
+Validation:
+- [x] Backup remote `/homeassistant/configuration.yaml`
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] `make verify`
+- [ ] Manual Apple Home pairing/test completed
+- Notes:
+  - Backup created: `/homeassistant/configuration.yaml.bak.1779905655`
+  - `ha core check` completed successfully.
+  - Restarted Home Assistant Core successfully.
+  - Synced snapshots from live Home Assistant after deployment because `ha_info.txt` had stale supervisor metadata (`2026.05.0` -> `2026.05.1`).
+  - `make verify` reported no drift after syncing.
+  - Live state confirmed `climate.nathaniel_meacocool_mc_series_12000_pro` is named `Nathaniel's Bedroom AC` with `off`/`cool` modes.
+  - Live state confirmed `climate.meacocool_mc_series_12000_pro_2` is named `Ren's Bedroom AC` with `off`/`cool` modes.
+
+Rollback:
+- Restore `/homeassistant/configuration.yaml.bak.1779905655` to `/homeassistant/configuration.yaml`, or remove the `HA Air Conditioning` HomeKit bridge and the two Meaco friendly-name customizations from `/homeassistant/configuration.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-05-24 - Implement Home Assistant review reliability fixes
 
 Summary:

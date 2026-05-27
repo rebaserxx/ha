@@ -1,6 +1,6 @@
 # HomeKit Bridge Migration Runbook
 
-Last updated on 2026-03-01.
+Last updated on 2026-05-27.
 
 ## Intent
 
@@ -9,6 +9,8 @@ This HomeKit rollout is currently defined in YAML for the active production brid
 The export model is intentionally simple:
 - Lighting: expose one room-level control per room, named `Room Lights`
 - Tado climate: expose one room-level thermostat per room, named `Room Heating`
+- Air conditioning: expose one Meaco climate control per room, named `Room AC`
+- Kitchen electric heating: expose the Ecostrad heater separately, named `Kitchen Ecostrad Heater`
 - Do not expose individual bulbs, Tado helper entities, or appliance helper entities
 
 ## Bridge Layout
@@ -23,9 +25,17 @@ Current state:
    - YAML-managed
    - Include-mode only via `filter.include_entities`
    - Production bridge for Tado room heating controls plus hot water
+3. `HA Air Conditioning`
+   - YAML-managed
+   - Include-mode only via `filter.include_entities`
+   - Production bridge for Meaco room cooling controls
+4. `HA Kitchen Heating`
+   - YAML-managed
+   - Include-mode only via `filter.include_entities`
+   - Dedicated bridge for the kitchen Ecostrad electric heater
 
 Planned later entries:
-3. Accessory-mode entries for TVs/receivers
+5. Accessory-mode entries for TVs/receivers
    - One per supported `media_player`
 
 ## Light Bridge Entity List
@@ -100,9 +110,30 @@ Hot water note:
 - Tado’s native HomeKit support does not support hot water control, so the Apple Home presentation may still feel unlike the Tado app.
 - If the exported hot water accessory is not useful in Apple Home, prefer using the HA scripts `tado_hot_water_auto`, `tado_hot_water_off`, and `tado_hot_water_boost` in Home Assistant instead of relying on the bridged water-heater accessory.
 
-Do not include these non-Tado climate entities:
-- `climate.ecostrad_klasse_iq`
-- `climate.nathaniel_meacocool_mc_series_12000_pro`
+## Air Conditioning Bridge Entity List
+
+Include only these room AC climate entities:
+
+- `climate.nathaniel_meacocool_mc_series_12000_pro` -> `Nathaniel's Bedroom AC`
+- `climate.meacocool_mc_series_12000_pro_2` -> `Ren's Bedroom AC`
+
+`HA Air Conditioning` includes this set in YAML on port `21066`.
+
+HomeKit presentation note:
+- Apple Home may present these as simple cooling thermostats.
+- Expected controls are off/cool and target temperature. Advanced Meaco features such as fan speed, swing, sleep mode, and timers may not appear unless HomeKit supports the exposed Home Assistant entities.
+
+## Kitchen Electric Heating Bridge Entity List
+
+Include only this kitchen electric heater climate entity:
+
+- `climate.ecostrad_klasse_iq` -> `Kitchen Ecostrad Heater`
+
+`HA Kitchen Heating` includes this set in YAML on port `21067`.
+
+HomeKit presentation note:
+- Apple Home is expected to present this as a simple heating thermostat.
+- Expected controls are off/heat and target temperature. The Ecostrad `eco` preset may not appear in Apple Home.
 
 Do not include Tado helper entities:
 - `* Child lock`
@@ -163,6 +194,21 @@ Batch 4:
 - `climate.attic_lounge`
 - `water_heater.hot_water`
 
+### Air Conditioning
+
+`HA Air Conditioning` is defined in YAML and includes the Meaco room AC climate entities. Pair it separately from `HA Climate` so AC pairing/cache issues stay isolated from heating.
+
+Batch 1:
+- `climate.nathaniel_meacocool_mc_series_12000_pro`
+- `climate.meacocool_mc_series_12000_pro_2`
+
+### Kitchen Electric Heating
+
+`HA Kitchen Heating` is defined in YAML and includes only the Ecostrad kitchen heater. Pair it separately from `HA Climate` so any Ecostrad-specific behavior stays isolated from the Tado heating bridge.
+
+Batch 1:
+- `climate.ecostrad_klasse_iq`
+
 ## Validation Checklist
 
 Before pairing:
@@ -175,6 +221,8 @@ For each migrated room:
 - Confirm room assignment in Apple Home
 - Confirm on/off and brightness for lights
 - Confirm current temperature and target temperature for heating
+- Confirm off/cool and target temperature for AC
+- Confirm off/heat and target temperature for kitchen electric heating
 - Remove the old/native accessory only after the HA-backed one passes validation
 
 ## Operational Notes
@@ -183,4 +231,6 @@ For each migrated room:
 - The current bridges are YAML-managed:
   - `HA Lights` on port `21064`
   - `HA Climate` on port `21065`
+  - `HA Air Conditioning` on port `21066`
+  - `HA Kitchen Heating` on port `21067`
 - If a single entity causes instability, remove only that entity from the bridge and continue with the rest.

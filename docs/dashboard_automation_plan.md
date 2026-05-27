@@ -43,6 +43,9 @@ Dashboard policy:
 Purpose:
 - Provide a single admin view for system reliability.
 
+Status:
+- Implemented on 2026-05-27.
+
 Include:
 - Backup last successful, next scheduled, attempted, and manager state.
 - Watchman status, missing entities, missing actions, last parse, and report button.

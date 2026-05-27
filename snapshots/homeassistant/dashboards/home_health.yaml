@@ -1,0 +1,107 @@
+title: Home Health
+views:
+  - title: Home Health
+    path: home-health
+    icon: mdi:heart-pulse
+    cards:
+      - type: entities
+        title: At A Glance
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.backup_backup_manager_state
+            name: Backup manager
+          - entity: sensor.backup_last_successful_automatic_backup
+            name: Last successful backup
+          - entity: sensor.watchman_status
+            name: Watchman
+          - entity: sensor.watchman_missing_entities
+            name: Missing entities
+          - entity: sensor.watchman_missing_actions
+            name: Missing actions
+          - entity: sensor.ucg_fiber_state
+            name: UCG Fiber state
+
+      - type: entities
+        title: Backups
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.backup_backup_manager_state
+            name: Manager state
+          - entity: sensor.backup_last_successful_automatic_backup
+            name: Last successful automatic backup
+          - entity: sensor.backup_last_attempted_automatic_backup
+            name: Last attempted automatic backup
+          - entity: sensor.backup_next_scheduled_automatic_backup
+            name: Next scheduled automatic backup
+          - entity: event.backup_automatic_backup
+            name: Automatic backup event
+
+      - type: entities
+        title: Watchman
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.watchman_status
+            name: Status
+          - entity: sensor.watchman_missing_entities
+            name: Missing entities
+          - entity: sensor.watchman_missing_actions
+            name: Missing actions
+          - entity: sensor.watchman_last_parse
+            name: Last parse
+          - entity: sensor.watchman_parse_duration
+            name: Parse duration
+          - entity: sensor.watchman_processed_files
+            name: Processed files
+          - entity: sensor.watchman_ignored_files
+            name: Ignored files
+          - entity: button.watchman_create_report_file
+            name: Create report file
+
+      - type: entities
+        title: Home Assistant Updates
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: update.home_assistant_core_update
+            name: Core
+          - entity: update.home_assistant_supervisor_update
+            name: Supervisor
+          - entity: update.home_assistant_operating_system_update
+            name: Operating system
+          - entity: update.matter_server_update
+            name: Matter Server
+          - entity: update.terminal_ssh_update
+            name: Terminal & SSH
+
+      - type: entities
+        title: Custom Integration Updates
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: update.hacs_update
+            name: HACS
+          - entity: update.meross_lan_update
+            name: Meross LAN
+          - entity: update.octopus_energy_update
+            name: Octopus Energy
+          - entity: update.watchman_update
+            name: Watchman
+
+      - type: entities
+        title: Network Gateway
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.ucg_fiber_state
+            name: State
+          - entity: sensor.ucg_fiber_uptime
+            name: Uptime
+          - entity: sensor.ucg_fiber_cpu_utilization
+            name: CPU utilisation
+          - entity: sensor.ucg_fiber_memory_utilization
+            name: Memory utilisation
+          - entity: update.ucg_fiber
+            name: Firmware

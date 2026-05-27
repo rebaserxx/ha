@@ -120,6 +120,9 @@ Policy reference:
 - Storage dashboards:
   - `Map` (`lovelace.map`)
 - YAML dashboards:
+  - `Home Health`
+    - file: `/config/dashboards/home_health.yaml`
+    - purpose: admin-only system health view for backups, Watchman, updates, and network gateway status
   - `Appliances`
     - file: `/config/dashboards/appliances.yaml`
     - purpose: ovens, dishwasher, and dryer status, remaining time, and admin-only controls

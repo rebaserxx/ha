@@ -236,6 +236,13 @@ frontend:
 
 lovelace:
   dashboards:
+    home-health:
+      mode: yaml
+      title: Home Health
+      icon: mdi:heart-pulse
+      show_in_sidebar: true
+      require_admin: true
+      filename: dashboards/home_health.yaml
     kitchen-appliances:
       mode: yaml
       title: Appliances

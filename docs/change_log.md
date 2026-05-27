@@ -37,6 +37,64 @@ Implemented by:
 
 ---
 
+## 2026-05-27 - Add Home Health dashboard
+
+Summary:
+- Added an admin-only YAML Home Health dashboard for system reliability checks.
+- Registered the dashboard in Lovelace with sidebar visibility.
+- Updated the dashboard implementation plan and configuration reference.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- snapshots/homeassistant/dashboards/home_health.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/dashboard_automation_plan.md
+- docs/change_log.md
+
+Details:
+- Added YAML dashboard:
+  - id: `home-health`
+  - title: `Home Health`
+  - file: `/config/dashboards/home_health.yaml`
+  - admin-only: `require_admin: true`
+- Dashboard sections:
+  - At A Glance
+  - Backups
+  - Watchman
+  - Home Assistant Updates
+  - Custom Integration Updates
+  - Network Gateway
+- Included backup manager sensors, Watchman status/counts/report button, HA update entities, HACS custom integration update entities, and UCG Fiber health/update entities.
+
+Validation:
+- [x] Confirmed referenced entities exist in the entity registry
+- [x] Backup remote `/homeassistant/configuration.yaml`
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] Live read-back of dashboard registration and dashboard YAML
+- [x] `make verify`
+- [ ] Manual UI review completed
+- Notes:
+  - Configuration backup created: `/homeassistant/configuration.yaml.bak.1779911047`
+  - `ha core check` completed successfully after deployment.
+  - Restarted Home Assistant Core successfully so the new Lovelace dashboard registration loads.
+  - Live read-back confirmed `home-health` in `/homeassistant/configuration.yaml`.
+  - Live read-back confirmed `/homeassistant/dashboards/home_health.yaml` exists with `title: Home Health`.
+  - `make verify` reported no drift.
+
+Rollback:
+- Restore `/homeassistant/configuration.yaml.bak.1779911047` to `/homeassistant/configuration.yaml`.
+- Remove `/homeassistant/dashboards/home_health.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-05-27 - Rename hot water pump, add recorder retention, and clean stale backups
 
 Summary:

@@ -96,6 +96,9 @@ Review focus:
 Purpose:
 - Catch broken entity and action references after changes.
 
+Status:
+- Implemented on 2026-05-28.
+
 Behavior:
 - Alert when `sensor.watchman_missing_entities` or `sensor.watchman_missing_actions` is above zero.
 - Prefer a daily summary first unless immediate alerts prove useful.

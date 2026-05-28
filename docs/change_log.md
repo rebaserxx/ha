@@ -37,6 +37,53 @@ Implemented by:
 
 ---
 
+## 2026-05-28 - Add Watchman daily alert
+
+Summary:
+- Added a daily persistent-notification health check for Watchman missing entities/actions.
+- Marked the Watchman alert stage as implemented in the dashboard and automation plan.
+
+Files changed:
+- snapshots/homeassistant/automations.yaml
+- docs/dashboard_automation_plan.md
+- docs/change_log.md
+
+Details:
+- Added automation `system_watchman_daily_check`.
+- Runs daily at `09:05`, shortly after the backup stale check.
+- Creates persistent notification `system_watchman_health` if:
+  - `sensor.watchman_missing_entities` is above zero
+  - `sensor.watchman_missing_actions` is above zero
+  - Watchman status/count sensors are unavailable
+- Dismisses `system_watchman_health` automatically when Watchman reports no issues.
+- Notification message includes Watchman status, missing entity count, missing action count, last parse, and parse duration.
+
+Validation:
+- [x] Backup remote `/homeassistant/automations.yaml`
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] Live read-back of automation
+- [x] `make verify`
+- [ ] Manual trigger/test completed
+- Notes:
+  - Automation backup created: `/homeassistant/automations.yaml.bak.1779997812`
+  - `ha core check` completed successfully after deployment.
+  - Restarted Home Assistant Core successfully because this host's `ha` CLI does not provide an automation reload command.
+  - Live read-back confirmed `system_watchman_daily_check` and notification id `system_watchman_health` in `/homeassistant/automations.yaml`.
+  - `make verify` reported no drift.
+
+Rollback:
+- Restore `/homeassistant/automations.yaml.bak.1779997812` to `/homeassistant/automations.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-05-27 - Add backup stale daily alert
 
 Summary:

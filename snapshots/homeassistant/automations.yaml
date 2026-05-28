@@ -615,3 +615,46 @@
           data:
             notification_id: system_backup_health
   mode: single
+
+- id: system_watchman_daily_check
+  alias: System - Watchman Daily Check
+  description: Alert if Watchman reports missing entities/actions or if Watchman sensors are unavailable.
+  triggers:
+    - trigger: time
+      at: "09:05:00"
+  conditions: []
+  actions:
+    - variables:
+        watchman_status: "{{ states('sensor.watchman_status') }}"
+        missing_entities_raw: "{{ states('sensor.watchman_missing_entities') }}"
+        missing_actions_raw: "{{ states('sensor.watchman_missing_actions') }}"
+        missing_entities_count: "{{ missing_entities_raw | int(0) }}"
+        missing_actions_count: "{{ missing_actions_raw | int(0) }}"
+        last_parse_raw: "{{ states('sensor.watchman_last_parse') }}"
+        parse_duration_raw: "{{ states('sensor.watchman_parse_duration') }}"
+        watchman_unavailable: >-
+          {{ watchman_status in ['unknown', 'unavailable', 'none', 'None', '']
+             or missing_entities_raw in ['unknown', 'unavailable', 'none', 'None', '']
+             or missing_actions_raw in ['unknown', 'unavailable', 'none', 'None', ''] }}
+        watchman_has_issues: "{{ (missing_entities_count | int(0)) > 0 or (missing_actions_count | int(0)) > 0 or watchman_unavailable }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ watchman_has_issues }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: system_watchman_health
+                title: Watchman Found Home Assistant Issues
+                message: >-
+                  Watchman status: {{ watchman_status }}.
+                  Missing entities: {{ missing_entities_raw }}.
+                  Missing actions: {{ missing_actions_raw }}.
+                  Last parse: {{ last_parse_raw }}.
+                  Parse duration: {{ parse_duration_raw }}.
+                  Open the Home Health dashboard or run Watchman report generation before editing dependent YAML.
+      default:
+        - action: persistent_notification.dismiss
+          data:
+            notification_id: system_watchman_health
+  mode: single

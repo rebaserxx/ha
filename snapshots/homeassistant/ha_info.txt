@@ -1,6 +1,6 @@
 arch: amd64
 channel: stable
-docker: 29.3.1
+docker: 29.5.3
 features:
 - reboot
 - shutdown
@@ -14,15 +14,15 @@ features:
 - journal
 - disk
 - mount
-hassos: "17.3"
-homeassistant: 2026.5.4
+hassos: "18.1"
+homeassistant: 2026.7.1
 hostname: homeassistant
 logging: info
 machine: qemux86-64
 machine_id: ca3de8ad16174608b6b0220f01eb418d
-operating_system: Home Assistant OS 17.3
+operating_system: Home Assistant OS 18.1
 state: running
-supervisor: 2026.05.1
+supervisor: 2026.06.2
 supported: true
 supported_arch:
 - amd64

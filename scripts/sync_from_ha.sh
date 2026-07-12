@@ -15,6 +15,8 @@ FILES=(
   "scripts.yaml"
   "scenes.yaml"
   "dashboards/appliances.yaml"
+  "dashboards/home_health.yaml"
+  "dashboards/utilities.yaml"
 )
 
 usage() {

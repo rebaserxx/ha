@@ -1,9 +1,9 @@
 # Home Assistant Configuration Reference
 
-Last verified on 2026-05-24.
+Last verified on 2026-07-12.
 
 ## System Snapshot
-- Core version: `2026.5.4`
+- Core version: `2026.7.1` (`2026.7.2` available as of 2026-07-12)
 - Host in this environment: `192.168.1.191`
 - Main config root on HA host: `/config`
 

@@ -243,6 +243,13 @@ lovelace:
       show_in_sidebar: true
       require_admin: true
       filename: dashboards/home_health.yaml
+    energy-utilities:
+      mode: yaml
+      title: Utilities
+      icon: mdi:transmission-tower
+      show_in_sidebar: true
+      require_admin: true
+      filename: dashboards/utilities.yaml
     kitchen-appliances:
       mode: yaml
       title: Appliances

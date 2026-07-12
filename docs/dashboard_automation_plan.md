@@ -18,7 +18,7 @@ This plan breaks future dashboard and automation work into small reviewable chan
 Dashboard filenames and IDs:
 
 - `home-health` -> `dashboards/home_health.yaml`
-- `utilities` -> `dashboards/utilities.yaml`
+- `energy-utilities` -> `dashboards/utilities.yaml`
 - `heating-diagnostics` -> `dashboards/heating_diagnostics.yaml`
 - `voice-bridges` -> `dashboards/voice_bridges.yaml`
 
@@ -116,6 +116,9 @@ Review focus:
 
 Purpose:
 - Show operational state for Octopus, Ohme, Renault, gas, water, and hot water.
+
+Status:
+- Implemented on 2026-05-28.
 
 Include:
 - Electricity current, previous, and next rates.

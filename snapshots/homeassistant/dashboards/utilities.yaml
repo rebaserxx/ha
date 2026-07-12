@@ -1,0 +1,195 @@
+title: Utilities
+views:
+  - title: Utilities
+    path: utilities
+    icon: mdi:transmission-tower
+    cards:
+      - type: entities
+        title: At A Glance
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: binary_sensor.octopus_energy_electricity_16l0037350_1100021054904_off_peak
+            name: Electricity off-peak
+          - entity: binary_sensor.octopus_energy_00000000_0009_4000_8020_000000016ba7_intelligent_dispatching
+            name: Intelligent dispatching
+          - entity: sensor.ohme_home_pro_status
+            name: Ohme status
+          - entity: sensor.renault_scenic_e_tech_battery
+            name: Renault battery
+          - entity: sensor.renault_scenic_e_tech_battery_autonomy
+            name: Renault range
+          - entity: binary_sensor.hot_water_power
+            name: Hot water demand
+          - entity: switch.hot_water_pump
+            name: Hot water pump
+          - entity: timer.hot_water_pump_runtime
+            name: Pump runtime timer
+
+      - type: entities
+        title: Electricity
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.octopus_energy_electricity_16l0037350_1100021054904_current_rate
+            name: Current rate
+          - entity: sensor.octopus_energy_electricity_16l0037350_1100021054904_previous_rate
+            name: Previous rate
+          - entity: sensor.octopus_energy_electricity_16l0037350_1100021054904_next_rate
+            name: Next rate
+          - entity: sensor.octopus_energy_electricity_16l0037350_1100021054904_current_standing_charge
+            name: Standing charge
+          - entity: sensor.octopus_energy_electricity_16l0037350_1100021054904_previous_accumulative_consumption
+            name: Previous consumption
+          - entity: sensor.octopus_energy_electricity_16l0037350_1100021054904_previous_accumulative_cost
+            name: Previous cost
+          - entity: event.octopus_energy_electricity_16l0037350_1100021054904_current_day_rates
+            name: Current day rates
+          - entity: event.octopus_energy_electricity_16l0037350_1100021054904_next_day_rates
+            name: Next day rates
+
+      - type: entities
+        title: Gas
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_current_rate
+            name: Current rate
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_rate
+            name: Previous rate
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_next_rate
+            name: Next rate
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_current_standing_charge
+            name: Standing charge
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3
+            name: Previous consumption m3
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh
+            name: Previous consumption kWh
+          - entity: sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_cost
+            name: Previous cost
+
+      - type: entities
+        title: Octoplus
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: binary_sensor.octopus_energy_a_e86380df_octoplus_saving_sessions
+            name: Saving sessions
+          - entity: calendar.octopus_energy_a_e86380df_octoplus_saving_sessions
+            name: Saving sessions calendar
+          - entity: calendar.octopus_energy_a_e86380df_greener_nights
+            name: Greener Nights
+          - entity: sensor.octopus_energy_a_e86380df_octoplus_points
+            name: Octoplus points
+          - entity: sensor.octopus_energy_a_e86380df_wheel_of_fortune_spins_electricity
+            name: Electricity spins
+          - entity: sensor.octopus_energy_a_e86380df_wheel_of_fortune_spins_gas
+            name: Gas spins
+
+      - type: entities
+        title: EV Charging
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.ohme_home_pro_status
+            name: Ohme status
+          - entity: select.ohme_home_pro_charge_mode
+            name: Ohme charge mode
+          - entity: sensor.ohme_home_pro_power
+            name: Ohme power
+          - entity: sensor.ohme_home_pro_current
+            name: Ohme current
+          - entity: sensor.ohme_home_pro_energy
+            name: Ohme energy
+          - entity: sensor.ohme_home_pro_vehicle_battery
+            name: Ohme vehicle battery
+          - entity: sensor.ohme_home_pro_charge_slots
+            name: Ohme charge slots
+          - entity: time.ohme_home_pro_target_time
+            name: Ohme target time
+          - entity: binary_sensor.octopus_energy_00000000_0009_4000_8020_000000016ba7_intelligent_dispatching
+            name: Intelligent dispatching
+
+      - type: entities
+        title: Renault Scenic
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.renault_scenic_e_tech_battery
+            name: Battery
+          - entity: sensor.renault_scenic_e_tech_battery_autonomy
+            name: Range
+          - entity: sensor.renault_scenic_e_tech_charge_state
+            name: Charge state
+          - entity: sensor.renault_scenic_e_tech_charging_remaining_time
+            name: Charging remaining time
+          - entity: binary_sensor.renault_scenic_e_tech_plug
+            name: Plug
+          - entity: binary_sensor.renault_scenic_e_tech_charging
+            name: Charging
+          - entity: sensor.renault_scenic_e_tech_plug_state
+            name: Plug state
+          - entity: sensor.renault_scenic_e_tech_admissible_charging_power
+            name: Admissible charging power
+          - entity: sensor.renault_scenic_e_tech_battery_available_energy
+            name: Battery available energy
+          - entity: sensor.renault_scenic_e_tech_mileage
+            name: Mileage
+
+      - type: entities
+        title: EV Controls
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: number.ohme_home_pro_target_percentage
+            name: Ohme target percentage
+          - entity: select.ohme_home_pro_charge_mode
+            name: Ohme charge mode
+          - entity: switch.ohme_home_pro_require_approval
+            name: Require approval
+          - entity: button.ohme_home_pro_approve_charge
+            name: Approve charge
+          - entity: number.renault_scenic_e_tech_minimum_charge_level
+            name: Renault minimum charge
+          - entity: number.renault_scenic_e_tech_target_charge_level
+            name: Renault target charge
+          - entity: button.renault_scenic_e_tech_start_charge
+            name: Start Renault charge
+          - entity: button.renault_scenic_e_tech_stop_charge
+            name: Stop Renault charge
+
+      - type: entities
+        title: Water
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.water_meter_latest_reading
+            name: Latest reading
+          - entity: sensor.water_meter_last_meter_reading_processed
+            name: Last reading processed
+          - entity: sensor.water_meter_yesterday_s_usage
+            name: Yesterday usage
+          - entity: sensor.water_meter_yesterday_s_water_cost
+            name: Yesterday water cost
+          - entity: sensor.water_meter_yesterday_s_sewerage_cost
+            name: Yesterday sewerage cost
+
+      - type: entities
+        title: Hot Water
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: water_heater.hot_water
+            name: Tado hot water
+          - entity: sensor.hot_water_tado_mode
+            name: Tado mode
+          - entity: binary_sensor.hot_water_power
+            name: Demand
+          - entity: binary_sensor.hot_water_connectivity
+            name: Connectivity
+          - entity: binary_sensor.hot_water_overlay
+            name: Overlay
+          - entity: switch.hot_water_pump
+            name: Pump
+          - entity: timer.hot_water_pump_runtime
+            name: Pump runtime

@@ -123,6 +123,9 @@ Policy reference:
   - `Home Health`
     - file: `/config/dashboards/home_health.yaml`
     - purpose: admin-only system health view for backups, Watchman, updates, and network gateway status
+  - `Utilities`
+    - file: `/config/dashboards/utilities.yaml`
+    - purpose: admin-only operational view for Octopus, Ohme, Renault, water, gas, and hot water
   - `Appliances`
     - file: `/config/dashboards/appliances.yaml`
     - purpose: ovens, dishwasher, and dryer status, remaining time, and admin-only controls

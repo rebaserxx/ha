@@ -37,6 +37,68 @@ Implemented by:
 
 ---
 
+## 2026-05-28 - Add Utilities dashboard
+
+Summary:
+- Added an admin-only YAML Utilities dashboard for Octopus, Ohme, Renault, water, gas, and hot water operations.
+- Registered the dashboard in Lovelace with sidebar visibility.
+- Updated the dashboard implementation plan and configuration reference.
+
+Files changed:
+- snapshots/homeassistant/configuration.yaml
+- snapshots/homeassistant/dashboards/utilities.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/dashboard_automation_plan.md
+- docs/change_log.md
+
+Details:
+- Added YAML dashboard:
+  - id: `energy-utilities`
+  - title: `Utilities`
+  - file: `/config/dashboards/utilities.yaml`
+  - admin-only: `require_admin: true`
+- Dashboard sections:
+  - At A Glance
+  - Electricity
+  - Gas
+  - Octoplus
+  - EV Charging
+  - Renault Scenic
+  - EV Controls
+  - Water
+  - Hot Water
+- Included Octopus tariff/usage/cost entities, Ohme charger status and controls, Renault charging/range entities, Anglian Water entities, Tado hot water demand/connectivity, and the hot water pump/timer.
+
+Validation:
+- [x] Confirmed referenced entities exist in the entity registry
+- [x] Backup remote `/homeassistant/configuration.yaml`
+- [x] `ha core check`
+- [x] Restart Home Assistant Core
+- [x] Live read-back of dashboard registration and dashboard YAML
+- [x] `make verify`
+- [ ] Manual UI review completed
+- Notes:
+  - Configuration backup created: `/homeassistant/configuration.yaml.bak.1779998997`
+  - First `ha core check` failed because Lovelace dashboard URL keys must contain a hyphen; changed dashboard id from `utilities` to `energy-utilities`.
+  - `ha core check` completed successfully after correcting the dashboard id.
+  - Restarted Home Assistant Core successfully so the new Lovelace dashboard registration loads.
+  - Live read-back confirmed `energy-utilities` in `/homeassistant/configuration.yaml`.
+  - Live read-back confirmed `/homeassistant/dashboards/utilities.yaml` exists with `title: Utilities`.
+  - `make verify` reported no drift.
+
+Rollback:
+- Restore `/homeassistant/configuration.yaml.bak.1779998997` to `/homeassistant/configuration.yaml`.
+- Remove `/homeassistant/dashboards/utilities.yaml`.
+- Restart Home Assistant Core.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Codex
+
+---
+
 ## 2026-05-28 - Add Watchman daily alert
 
 Summary:

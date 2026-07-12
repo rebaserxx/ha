@@ -19,7 +19,9 @@ Last verified on 2026-07-12.
 - `automation: !include automations.yaml`
 - `script: !include scripts.yaml`
 - `scene: !include scenes.yaml`
-- `input_number:` (`tado_gas_meter_register_m3`)
+- `input_number:` (`tado_gas_meter_baseline_m3`, `tado_gas_meter_last_submitted_m3`)
+- `sql:` (`sensor.octopus_gas_statistics_total` - cumulative gas total from backfilled Octopus statistics)
+- `template:` sensors (Tado gas derived register, Home Connect appliance labels)
 - `input_datetime:` (`tado_gas_meter_last_submission_date`)
 - `timer:` (`hot_water_pump_runtime`)
 
@@ -102,7 +104,8 @@ Policy reference:
 - `hot_water_pump_follow_tado_on_for_1h`
 - `hot_water_pump_off_when_runtime_finishes`
 - `hot_water_pump_manual_auto_off_30m`
-- `tado_gas_meter_reading_daily_from_octopus`
+- `tado_gas_meter_reading_weekly_from_octopus`
+- `tado_gas_meter_submission_overdue_alert`
 - `octopus_energy_gas_rollover_health_daily_check`
 
 ## Current Script Inventory
@@ -288,34 +291,40 @@ Tracking guidance:
 - Treat this list as operational debt; keep it current when issues are resolved or newly observed.
 
 ## Tado Gas Meter Reading Sync
-- Automation: `tado_gas_meter_reading_daily_from_octopus`
-- Schedule: daily at `16:00`
-- Source sensor:
-  - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_m3`
+- Automation: `tado_gas_meter_reading_weekly_from_octopus`
+- Schedule: checked daily at `18:00`, submits at most weekly
+- Register derivation (statistics-based, reworked 2026-07-12):
+  - SQL sensor `sensor.octopus_gas_statistics_total` reads the latest cumulative `sum` (m³) of the backfilled external statistic `octopus_energy:gas_e6s10414361656_2215950002_previous_accumulative_consumption` from the recorder DB, with `last_stat_ts` attribute for freshness.
+  - Template sensor `sensor.tado_gas_meter_register_derived` = `input_number.tado_gas_meter_baseline_m3` + statistics total.
+  - Late/backfilled Octopus DCC data raises the statistic retroactively, so the register self-heals; no per-day accumulation state exists to corrupt.
+- Submission conditions (all required, else retry next day):
+  - derived register sensor available
+  - statistics data no older than 4 days (`last_stat_ts`)
+  - at least 7 days since last submission
+  - integer register greater than `input_number.tado_gas_meter_last_submitted_m3`
 - Tado action:
   - `tado.add_meter_reading`
   - `config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E`
-  - `reading: <derived cumulative register m3 value, integer only>`
+  - `reading: <derived register m3 value, integer only>`
+  - Note: no date parameter in HA `2026.7.1`; Tado dates readings on submission day. Dated submissions via the Tado Energy Insights API are a planned follow-up.
 - Helpers:
-  - `input_number.tado_gas_meter_register_m3` (running cumulative register value)
-  - `input_datetime.tado_gas_meter_last_submission_date` (idempotency guard)
+  - `input_number.tado_gas_meter_baseline_m3` (fixed anchor: physical register minus statistics total at anchor time)
+  - `input_number.tado_gas_meter_last_submitted_m3` (monotonic submission guard)
+  - `input_datetime.tado_gas_meter_last_submission_date` (cadence guard)
+- Monitoring:
+  - `tado_gas_meter_submission_overdue_alert` (daily 19:00): persistent notification if no submission for more than 10 days, auto-dismissed when healthy.
+- Maintenance caveat:
+  - The SQL sensor queries recorder `statistics`/`statistics_meta` tables directly; an HA schema change could break it. Failure direction is safe (no submission) and surfaces via the overdue alert.
+- Manual correction / re-anchoring:
+  - Script: `tado_gas_set_manual_baseline`
+  - Usage: run from UI with `manual_reading` (actual physical meter register, integer) and optional `submission_date`
+  - Behavior: sets `input_number.tado_gas_meter_baseline_m3` = reading minus current statistics total, so the derived register equals the physical meter; posts a confirmation notification.
 
 ## Hot Water Pump Runtime
 - The Tado hot water demand automation starts the Meross water pump and `timer.hot_water_pump_runtime` for one hour.
 - `hot_water_pump_off_when_runtime_finishes` turns the pump off when the timer finishes.
 - `hot_water_pump_manual_auto_off_30m` still protects manual/physical starts, but does not turn the pump off while `binary_sensor.hot_water_power` is on.
 - Current pump entity is `switch.hot_water_pump`.
-- Manual correction form:
-  - Script: `tado_gas_set_manual_baseline`
-  - Usage: run from UI with `manual_reading` (integer) and optional `submission_date`
-  - Behavior: preserves helper fractional carry, updates helper baseline/date, and posts a confirmation notification.
-
-Operational intent:
-- Octopus sensor provides daily gas usage, not an absolute meter register.
-- Automation derives a meter-style register by adding daily usage to the stored helper value.
-- Tado submission is sent as an integer (no decimal places).
-- Tado service schema in HA `2026.2.3` expects `config_entry` and `reading` (not `utility`/`date`).
-- Internal day tracking uses yesterday so submission cadence aligns with the `previous_*` Octopus data series.
 
 ## Tado Hot Water Control
 - Canonical hot water entity:

@@ -37,6 +37,47 @@ Implemented by:
 
 ---
 
+## 2026-07-12 - Rework Tado gas meter sync to statistics-derived register with weekly cadence
+
+Summary:
+- Replaced the fragile daily delta-accumulation gas register with a register derived from the Octopus integration's backfilled long-term statistics, and moved Tado submissions from daily to weekly.
+- The old design sampled `previous_accumulative_consumption_m3` at 16:00 and assumed it was yesterday's data; late DCC data caused double-counting and missed days were unrecoverable. The new register self-heals because the external statistic (`octopus_energy:gas_..._previous_accumulative_consumption`) is backfilled retroactively by the integration.
+
+Files changed:
+- /config/configuration.yaml
+- /config/automations.yaml
+- /config/scripts.yaml
+
+Details:
+- Added `sql:` sensor `sensor.octopus_gas_statistics_total` reading the latest statistics `sum` (m³) plus `last_stat_ts` attribute from the recorder DB.
+- Added template sensor `sensor.tado_gas_meter_register_derived` = `input_number.tado_gas_meter_baseline_m3` + statistics total.
+- Replaced helper `input_number.tado_gas_meter_register_m3` (running accumulator) with `input_number.tado_gas_meter_baseline_m3` (fixed anchor) and added `input_number.tado_gas_meter_last_submitted_m3` (monotonic submission guard). Kept `input_datetime.tado_gas_meter_last_submission_date`.
+- Removed automation `tado_gas_meter_reading_daily_from_octopus`; added `tado_gas_meter_reading_weekly_from_octopus` (checks daily at 18:00, submits only when >=7 days since last submission, statistics data <=4 days old, and integer register increased; failed preconditions retry the next day).
+- Added automation `tado_gas_meter_submission_overdue_alert` (daily 19:00, persistent notification if no submission for >10 days, auto-dismisses when healthy).
+- Reworked script `tado_gas_set_manual_baseline` to re-anchor from an actual physical meter reading (baseline = reading - statistics total).
+- Cutover values preserved register continuity: old register 27007.466, statistics total 61.208 -> baseline 26946.258, last submitted 27007; derived register read back 27007.466 exactly.
+- Note: `tado.add_meter_reading` in HA 2026.7.1 has no date parameter, so readings remain dated on submission day; a dated-submission path via the Tado Energy Insights API is planned as a follow-up.
+- Maintenance caveat: the SQL sensor queries recorder `statistics`/`statistics_meta` tables directly; an HA schema change could break it, in which case submissions stop safely and the overdue alert fires within 10 days.
+
+Validation:
+- [x] `ha core check`
+- [x] Restart core (required for new `sql` domain)
+- [x] Read-back: SQL sensor 61.208 with fresh `last_stat_ts`, derived register 27007.466, both automations `on`, helpers set
+- [x] `make verify` clean
+- Notes: HA error log clean for sql/template/tado_gas after restart. Old helper `input_number.tado_gas_meter_register_m3` now an orphaned unavailable entity with no remaining references.
+
+Rollback:
+- Restore `/homeassistant/configuration.yaml.bak.1783852820`, `/homeassistant/automations.yaml.bak.1783852820`, `/homeassistant/scripts.yaml.bak.1783852820`.
+- Restart core, then set `input_number.tado_gas_meter_register_m3` back to 27007.466 and `input_datetime.tado_gas_meter_last_submission_date` to 2026-07-10.
+
+Requested by:
+- David
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-05-28 - Add Utilities dashboard
 
 Summary:

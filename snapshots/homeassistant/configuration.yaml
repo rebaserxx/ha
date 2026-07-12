@@ -262,7 +262,34 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
+# Cumulative gas total from the Octopus integration's backfilled long-term
+# statistics. Late-arriving DCC data raises the sum retroactively, so this is
+# robust to out-of-sync daily sensor data.
+sql:
+  - name: Octopus Gas Statistics Total
+    unique_id: octopus_gas_statistics_total_m3
+    query: >-
+      SELECT s.sum AS state, s.start_ts AS last_stat_ts
+      FROM statistics s
+      JOIN statistics_meta m ON s.metadata_id = m.id
+      WHERE m.statistic_id = 'octopus_energy:gas_e6s10414361656_2215950002_previous_accumulative_consumption'
+        AND s.sum IS NOT NULL
+      ORDER BY s.start_ts DESC
+      LIMIT 1
+    column: state
+    unit_of_measurement: "m³"
+
 template:
+  - sensor:
+      - name: Tado Gas Meter Register Derived
+        unique_id: tado_gas_meter_register_derived
+        icon: mdi:meter-gas
+        unit_of_measurement: "m³"
+        availability: >-
+          {{ states('sensor.octopus_gas_statistics_total') not in ['unknown', 'unavailable'] }}
+        state: >-
+          {{ (states('input_number.tado_gas_meter_baseline_m3') | float(0)
+              + states('sensor.octopus_gas_statistics_total') | float(0)) | round(3) }}
   - sensor:
       - name: Left Oven Programme
         unique_id: left_oven_programme_label
@@ -364,11 +391,18 @@ template:
           {% endif %}
 
 input_number:
-  tado_gas_meter_register_m3:
-    name: Tado Gas Meter Register m3
-    min: 0
+  tado_gas_meter_baseline_m3:
+    name: Tado Gas Meter Baseline m3
+    min: -999999
     max: 999999
     step: 0.001
+    mode: box
+    unit_of_measurement: m3
+  tado_gas_meter_last_submitted_m3:
+    name: Tado Gas Meter Last Submitted m3
+    min: 0
+    max: 999999
+    step: 1
     mode: box
     unit_of_measurement: m3
 

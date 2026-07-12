@@ -474,7 +474,7 @@
 
 - id: tado_gas_meter_reading_weekly_from_octopus
   alias: Tado - Submit Weekly Gas Meter Reading From Octopus
-  description: Submit the statistics-derived cumulative gas register to Tado weekly. Checks daily and submits once at least 7 days have passed, statistics data is fresh, and the integer register has increased.
+  description: Submit the statistics-derived cumulative gas register to Tado Energy IQ weekly, dated at the end of the underlying statistics data. Checks daily and submits once at least 7 days have passed and the integer register has increased. No freshness condition needed because readings are dated at their data horizon.
   triggers:
     - trigger: time
       at: "18:00:00"
@@ -483,10 +483,6 @@
       value_template: >-
         {{ states('sensor.tado_gas_meter_register_derived')
            not in ['unknown', 'unavailable', 'none', 'None', ''] }}
-    - condition: template
-      value_template: >-
-        {% set last_stat_ts = state_attr('sensor.octopus_gas_statistics_total', 'last_stat_ts') | float(0) %}
-        {{ last_stat_ts > 0 and (now().timestamp() - last_stat_ts) < (4 * 86400) }}
     - condition: template
       value_template: >-
         {% set last = states('input_datetime.tado_gas_meter_last_submission_date') %}
@@ -499,20 +495,41 @@
   actions:
     - variables:
         tado_register_m3: "{{ states('sensor.tado_gas_meter_register_derived') | float(0) | int(0) }}"
-    - action: tado.add_meter_reading
+        reading_date: >-
+          {{ ((state_attr('sensor.octopus_gas_statistics_total', 'last_stat_ts') | float(0)) + 3600)
+             | timestamp_custom('%Y-%m-%d') }}
+    - action: shell_command.tado_submit_dated_meter_reading
       data:
-        config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E
         reading: "{{ tado_register_m3 }}"
-    - action: input_number.set_value
-      target:
-        entity_id: input_number.tado_gas_meter_last_submitted_m3
-      data:
-        value: "{{ tado_register_m3 }}"
-    - action: input_datetime.set_datetime
-      target:
-        entity_id: input_datetime.tado_gas_meter_last_submission_date
-      data:
-        date: "{{ now().date() | string }}"
+        date: "{{ reading_date }}"
+      response_variable: submit_result
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ submit_result.returncode == 0 }}"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.tado_gas_meter_last_submitted_m3
+              data:
+                value: "{{ tado_register_m3 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.tado_gas_meter_last_submission_date
+              data:
+                date: "{{ now().date() | string }}"
+            - action: persistent_notification.dismiss
+              data:
+                notification_id: tado_gas_meter_submission_failed
+      default:
+        - action: persistent_notification.create
+          data:
+            notification_id: tado_gas_meter_submission_failed
+            title: Tado Gas Meter Submission Failed
+            message: >-
+              Dated meter reading submission failed (reading {{ tado_register_m3 }},
+              date {{ reading_date }}). Will retry tomorrow at 18:00.
+              stderr: {{ submit_result.stderr | default('') | truncate(400) }}
   mode: single
 
 - id: tado_gas_meter_submission_overdue_alert

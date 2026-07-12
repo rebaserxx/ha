@@ -262,6 +262,15 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
+# Dated Tado Energy IQ meter-reading submission. The script owns an
+# independent Tado OAuth grant (token file /config/.tado_meter_token.json);
+# it must never share the tado integration's rotating refresh token.
+shell_command:
+  tado_submit_dated_meter_reading: >-
+    python3 /config/scripts/tado_meter_reading.py --submit {{ reading }} --date {{ date }}
+  tado_submit_dated_meter_reading_dry_run: >-
+    python3 /config/scripts/tado_meter_reading.py --submit {{ reading }} --date {{ date }} --dry-run
+
 # Cumulative gas total from the Octopus integration's backfilled long-term
 # statistics. Late-arriving DCC data raises the sum retroactively, so this is
 # robust to out-of-sync daily sensor data.

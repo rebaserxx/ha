@@ -37,6 +37,46 @@ Implemented by:
 
 ---
 
+## 2026-07-12 - Add dated Tado meter-reading submissions via Energy Insights API
+
+Summary:
+- Replaced the undated `tado.add_meter_reading` action (which HA 2026.7.1 always dates "today") with a dated submission to the Tado Energy Insights API, so weekly readings are dated at the exact end of the underlying Octopus statistics data.
+- The submission script owns an independent Tado OAuth device-code grant; it never touches the HA tado integration's rotating refresh token (sharing that token would break the integration's login).
+
+Files changed:
+- /config/scripts/tado_meter_reading.py (new)
+- /config/configuration.yaml
+- /config/automations.yaml
+- repo: scripts/sync_from_ha.sh (added the new script to sync/verify list)
+
+Details:
+- New stdlib-only script `/config/scripts/tado_meter_reading.py`: `--login` one-time device-code authorization; `--submit N --date YYYY-MM-DD [--dry-run]` refreshes/rotates its own token and POSTs to `energy-insights.tado.com/api/homes/582180/meterReadings`.
+- Token state at `/config/.tado_meter_token.json` (chmod 600, never synced to git). Exit code 2 signals a dead grant needing re-login; exit 1 transient failure.
+- Added `shell_command.tado_submit_dated_meter_reading` (+ `_dry_run` variant) to configuration.yaml.
+- Reworked `tado_gas_meter_reading_weekly_from_octopus`: reading date = end of last statistics row (`last_stat_ts` + 1h, local date); helpers update only on returncode 0; failure creates persistent notification `tado_gas_meter_submission_failed` (dismissed on next success) and retries the next day.
+- Dropped the 4-day freshness condition: readings dated at their data horizon are accurate regardless of DCC lag, and the monotonic guard already blocks stale resubmission.
+- One-time device-code login approved by David 2026-07-12; grant kept alive by weekly use (Tado idle expiry ~30 days).
+
+Validation:
+- [x] `ha core check`
+- [x] Restart core (new `shell_command` domain)
+- [x] Dry-run via API: `returncode 0`, "would POST reading=27007 date=2026-07-09 to home 582180" (token refresh + rotation exercised inside the core container)
+- [x] Date template verified: reading=27007 date=2026-07-09
+- [x] `make verify` clean; error log clean
+- Notes: first real submission expected on/after 2026-07-17.
+
+Rollback:
+- Revert automation's actions to `tado.add_meter_reading` (see previous entry's YAML in git history), remove `shell_command:` block, restart core.
+- Optionally delete `/homeassistant/scripts/tado_meter_reading.py` and `/homeassistant/.tado_meter_token.json` and revoke the grant in the Tado app.
+
+Requested by:
+- David
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-07-12 - Rework Tado gas meter sync to statistics-derived register with weekly cadence
 
 Summary:

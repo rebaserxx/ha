@@ -299,14 +299,17 @@ Tracking guidance:
   - Late/backfilled Octopus DCC data raises the statistic retroactively, so the register self-heals; no per-day accumulation state exists to corrupt.
 - Submission conditions (all required, else retry next day):
   - derived register sensor available
-  - statistics data no older than 4 days (`last_stat_ts`)
   - at least 7 days since last submission
   - integer register greater than `input_number.tado_gas_meter_last_submitted_m3`
-- Tado action:
-  - `tado.add_meter_reading`
-  - `config_entry: 01KJ0N1WQ9792EY1JBD0HYA63E`
-  - `reading: <derived register m3 value, integer only>`
-  - Note: no date parameter in HA `2026.7.1`; Tado dates readings on submission day. Dated submissions via the Tado Energy Insights API are a planned follow-up.
+  - (no freshness condition: readings are dated at their data horizon, so DCC lag only delays, never distorts)
+- Submission mechanism (dated, added 2026-07-12):
+  - `shell_command.tado_submit_dated_meter_reading` -> `/config/scripts/tado_meter_reading.py --submit <int reading> --date <YYYY-MM-DD>`
+  - reading date = end of the last statistics row (`last_stat_ts` + 1h, local date)
+  - the script POSTs to the Tado Energy Insights API (`energy-insights.tado.com`, home `582180`) using its own OAuth device-code grant stored at `/config/.tado_meter_token.json` (chmod 600, never in git)
+  - IMPORTANT: the script must never use the HA tado integration's refresh token - Tado rotates refresh tokens on use and sharing it breaks the integration's login; re-authorize the script with `python3 /config/scripts/tado_meter_reading.py --login` if its own grant dies (exit code 2, surfaced in the failure notification)
+  - helpers update only on submission success; failure raises persistent notification `tado_gas_meter_submission_failed` and retries next day
+  - `shell_command.tado_submit_dated_meter_reading_dry_run` exists for safe end-to-end testing (auth + home resolution, no POST)
+  - note: `tado.add_meter_reading` (HA `2026.7.1`) is no longer used - it has no date parameter and always dates readings on submission day
 - Helpers:
   - `input_number.tado_gas_meter_baseline_m3` (fixed anchor: physical register minus statistics total at anchor time)
   - `input_number.tado_gas_meter_last_submitted_m3` (monotonic submission guard)

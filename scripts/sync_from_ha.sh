@@ -17,6 +17,7 @@ FILES=(
   "dashboards/appliances.yaml"
   "dashboards/home_health.yaml"
   "dashboards/utilities.yaml"
+  "scripts/tado_meter_reading.py"
 )
 
 usage() {

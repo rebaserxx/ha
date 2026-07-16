@@ -573,7 +573,7 @@
 
 - id: octopus_energy_gas_rollover_health_daily_check
   alias: Octopus Energy - Gas Rollover Health Check
-  description: Alert if Octopus gas previous-day rollover (last_reset) is missing or stale.
+  description: Alert if Octopus gas previous-day rollover (last_reset) is missing or 2+ days stale.
   triggers:
     - trigger: time
       at: "19:00:00"
@@ -590,21 +590,28 @@
           {% if gas_last_reset_raw in [none, 'unknown', 'unavailable', 'none', 'None', ''] %}
             unknown
           {% else %}
-            {{ gas_last_reset_raw[0:10] }}
+            {{ (gas_last_reset_raw | as_datetime | as_local).date() | string }}
+          {% endif %}
+        gas_days_behind: >-
+          {% if gas_last_reset_date == 'unknown' %}
+            999
+          {% else %}
+            {{ ((today_at('00:00') - timedelta(days=1)).date() - (gas_last_reset_raw | as_datetime | as_local).date()).days }}
           {% endif %}
     - choose:
         - conditions:
             - condition: template
               value_template: >-
                 {{ gas_kwh_state in ['unknown', 'unavailable', 'none', 'None', '']
-                   or gas_last_reset_date != expected_last_reset_date }}
+                   or gas_days_behind | int(999) >= 2 }}
           sequence:
             - action: persistent_notification.create
               data:
                 notification_id: octopus_energy_gas_rollover_health
                 title: Octopus Energy Gas Rollover Check Failed
                 message: >-
-                  Expected Octopus gas last_reset date {{ expected_last_reset_date }}, got {{ gas_last_reset_date }}.
+                  Octopus gas last_reset is {{ gas_days_behind | int(999) }} day(s) behind:
+                  expected {{ expected_last_reset_date }}, got {{ gas_last_reset_date }} (local date).
                   kWh state: {{ gas_kwh_state }}.
                   m3 state: {{ gas_m3_state }}.
                   Check Octopus integration diagnostics and Energy statistics continuity.

@@ -37,6 +37,44 @@ Implemented by:
 
 ---
 
+## 2026-07-16 - Fix BST timezone bug and add lag tolerance to gas rollover health check
+
+Summary:
+- `octopus_energy_gas_rollover_health_daily_check` fired every evening since the clocks changed to BST: it extracted the `last_reset` date with a string slice (`raw[0:10]`), which reads the UTC date. Octopus reports `last_reset` as local midnight (e.g. `2026-07-13T23:00:00+00:00` = 2026-07-14 local), so during BST the check read one day behind and could never pass, even with on-time data.
+- Additionally, Octopus/DCC gas data routinely lands late evening (observed 22:33 on 2026-07-15 for the 14th), after the 19:00 check, so a 1-day lag is normal and self-heals via statistics backfill.
+
+Files changed:
+- /config/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- `gas_last_reset_date` now derived via `(gas_last_reset_raw | as_datetime | as_local).date()` instead of `gas_last_reset_raw[0:10]`.
+- New `gas_days_behind` variable = expected date (yesterday, local) minus local last_reset date; unknown last_reset maps to 999.
+- Alert condition changed from strict date equality to `gas_days_behind >= 2` (1 day of DCC lag tolerated); unknown/unavailable kWh state still alerts.
+- Notification message now reports days behind plus expected/observed local dates.
+- Old behavior -> new behavior: daily false alarm during BST -> alerts only when data is genuinely 2+ days stale or the sensor is unavailable.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload automations via REST API
+- [x] Template API render: `local_date=2026-07-14 expected=2026-07-15 days_behind=1` (matches live sensor `last_reset: 2026-07-13T23:00:00+00:00`)
+- [x] Manual `automation.trigger`: healthy path taken, persistent notification `octopus_energy_gas_rollover_health` dismissed (state read returns 404)
+- [x] `make sync-ha` + `make verify` clean
+- Notes: HA had been upgraded to 2026.7.2 since last sync; version info snapshots refreshed in the same sync.
+
+Rollback:
+- Restore `/homeassistant/automations.yaml.bak.1784184750` (created this session) over `/homeassistant/automations.yaml`, run `ha core check`, reload automations.
+- Backup cleanup: none this session (permission denied for deleting May 2026 `.bak` files; `automations.yaml.bak.1779908696/.1779911495/.1779997812` remain past the 7-day retention window and can be removed manually).
+
+Requested by:
+- David
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-07-12 - Add dated Tado meter-reading submissions via Energy Insights API
 
 Summary:

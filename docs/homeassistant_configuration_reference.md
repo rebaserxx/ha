@@ -354,12 +354,14 @@ Operational note:
 - Schedule: daily at `19:00`
 - Primary sensor:
   - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh`
-- Validation:
-  - compares sensor `last_reset` date to yesterday (`YYYY-MM-DD`)
+- Validation (timezone-safe, lag-tolerant since 2026-07-16):
+  - converts sensor `last_reset` to the **local** date (`as_datetime | as_local`) before comparing — a plain string slice reads the UTC date, which is one day behind during BST and caused daily false alarms
+  - computes `gas_days_behind` = expected date (yesterday) minus local last_reset date
+  - alerts only when 2+ days behind (1 day of DCC lag is normal and self-heals via statistics backfill)
   - treats unknown/unavailable kWh sensor state as failure
 - Failure action:
   - creates persistent notification `octopus_energy_gas_rollover_health`
-  - includes expected date, observed date, and current kWh/m3 states
+  - includes days behind, expected date, observed local date, and current kWh/m3 states
 - Recovery action:
   - dismisses notification `octopus_energy_gas_rollover_health`
 

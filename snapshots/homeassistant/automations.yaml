@@ -576,7 +576,7 @@
   description: Alert if Octopus gas previous-day rollover (last_reset) is missing or 2+ days stale.
   triggers:
     - trigger: time
-      at: "19:00:00"
+      at: "23:45:00"
   conditions: []
   actions:
     - variables:

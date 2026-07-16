@@ -37,6 +37,37 @@ Implemented by:
 
 ---
 
+## 2026-07-16 - Move gas rollover health check from 19:00 to 23:45
+
+Summary:
+- Sensor history since 2026-07-01 shows previous-day Octopus gas data arrives next-day evening between 19:10 and 23:43 (usually ~22:30), so the 19:00 check almost always ran before that day's data landed. Moved the daily check to 23:45 so it normally runs after arrival.
+- The 2-day staleness tolerance added earlier today is kept as the safety net for multi-day DCC gaps (two observed this month: 07-02/07-03 and 07-09/07-10).
+
+Files changed:
+- /config/automations.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- `octopus_energy_gas_rollover_health_daily_check` trigger `at` changed `19:00:00` -> `23:45:00`. No logic changes.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload automations via REST API
+- [x] Read back trigger via `/api/config/automation/config`: `{'trigger': 'time', 'at': '23:45:00'}`
+- [x] `make verify` clean
+
+Rollback:
+- Restore `/homeassistant/automations.yaml.bak.1784185343` (created this session), run `ha core check`, reload automations.
+
+Requested by:
+- David
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-07-16 - Fix BST timezone bug and add lag tolerance to gas rollover health check
 
 Summary:

@@ -351,7 +351,7 @@ Operational note:
 
 ## Octopus Gas Rollover Monitoring
 - Automation: `octopus_energy_gas_rollover_health_daily_check`
-- Schedule: daily at `19:00`
+- Schedule: daily at `23:45` (moved from `19:00` on 2026-07-16 — previous-day data typically arrives 19:10–23:43, so the check now usually runs after it lands)
 - Primary sensor:
   - `sensor.octopus_energy_gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh`
 - Validation (timezone-safe, lag-tolerant since 2026-07-16):

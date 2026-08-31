@@ -711,21 +711,31 @@
 - id: ev_ohme_sync_renault_state_of_charge
   alias: EV - Sync Renault State of Charge to Ohme
   description: >-
-    Push the Renault's true battery percentage into Ohme while it is plugged in at home,
-    so Ohme sizes the charge plan correctly now that Ohme's own Renault integration is
-    disabled. Writes only the state-of-charge input, which the integration maps to
-    PUT /v1/car/{id}/state-of-charge - it cannot start, approve or resume a charge.
-    Intelligent Octopus Go keeps control of when charging actually happens.
-    The charger is shared with a second vehicle (Honda e:Ny1) that has no Home Assistant
-    presence, so this only acts when the Renault itself reports plugged in AND at home,
-    and it selects the Renault in Ohme first because Ohme applies state-of-charge to
-    whichever vehicle is currently selected.
+    Keep Ohme's idea of the Renault's battery level correct while it is plugged in at home,
+    because Ohme has disabled its own Renault integration and its internal estimate drifts
+    badly on long top-ups (measured: Ohme's figure updated 3 times in 7 hours over a 51->91%
+    session while the Renault reported 40 times).
+    Writes only the state-of-charge input, which the integration maps to
+    PUT /v1/car/{id}/state-of-charge - it touches no session endpoint, so it cannot start,
+    approve or resume a charge. Intelligent Octopus Go keeps control of when charging happens.
+    The charger is shared with a Honda e:Ny1 that has no Home Assistant presence, so this only
+    acts when the Renault itself reports plugged in AND at home, and it selects the Renault in
+    Ohme first because Ohme applies state-of-charge to whichever vehicle is currently selected.
   triggers:
+    # Ohme sees the plug-in first - typically ~90s before the Renault cloud catches up.
     - trigger: state
       entity_id: sensor.ohme_home_pro_status
       from: unplugged
       not_to: ["unavailable", "unknown"]
       id: plugged_in
+    # ...so the Renault confirming the plug is also a trigger, otherwise the run above
+    # fails its plug condition and nothing ever retries it.
+    - trigger: state
+      entity_id: binary_sensor.renault_scenic_e_tech_plug
+      to: "on"
+      id: renault_plugged
+    # The Renault polls every 7 minutes and reports ~1% per poll at 7kW, which is what
+    # keeps Ohme corrected through a long charge.
     - trigger: state
       entity_id: sensor.renault_scenic_e_tech_battery
       not_to: ["unavailable", "unknown"]
@@ -747,11 +757,26 @@
       entity_id: device_tracker.renault_scenic_e_tech_location
       state: home
     # Usable reading, and only write when Ohme does not already agree.
+    # No staleness gate: a reading that looks days old is still correct when the car has
+    # been parked, and the 7-minute poll tracks a charge accurately. Age is not the failure
+    # mode here, so gating on it would block correct writes.
     - condition: template
       value_template: >-
         {% set r = states('sensor.renault_scenic_e_tech_battery') | float(-1) %}
         {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
         {{ 0 <= r <= 100 and (r | round(0) | int) != (o | round(0) | int) }}
+    # Mid-charge corrections are throttled to one per 15 minutes (~20 writes on a 40% top-up
+    # instead of ~39, keeping Ohme within ~2%). A deadband was measured and rejected: it only
+    # cut 39 fires to 38, because the gap is large rather than marginal. Plug-in triggers
+    # bypass the throttle - that write sets the figure Ohme plans the whole session against.
+    - condition: or
+      conditions:
+        - condition: trigger
+          id: ["plugged_in", "renault_plugged"]
+        - condition: template
+          value_template: >-
+            {{ this.attributes.last_triggered is none
+               or (now() - this.attributes.last_triggered).total_seconds() > 900 }}
   actions:
     # Ohme applies state-of-charge to the selected vehicle (client._cars[0]), so make sure
     # that is the Renault before writing. This is PUT /v1/car/{id}/select - it cannot start

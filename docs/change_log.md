@@ -37,6 +37,101 @@ Implemented by:
 
 ---
 
+## 2026-08-31 - Rework Renault->Ohme SoC sync after first live plug-in test
+
+Summary:
+- First real plug-in exposed two bugs and disproved one of my own design assumptions.
+- Reworked `ev_ohme_sync_renault_state_of_charge`: added a third trigger, removed the
+  planned staleness gate, and added a 15-minute mid-charge throttle.
+
+Files changed:
+- /config/automations.yaml
+- docs/change_log.md
+- snapshots/homeassistant/* (re-synced from live)
+
+What the live test showed (2026-08-31, all timestamps UTC):
+
+1. An 88-second race, now fixed
+   - 13:17:21 Ohme status unplugged -> pending_approval; automation triggered.
+   - Trace: `failed_conditions` at `condition/1` (binary_sensor.renault_scenic_e_tech_plug).
+   - 13:18:49 the Renault plug sensor finally went `on` - 88 seconds too late. Nothing
+     re-triggered, so the automation was stranded for the whole session.
+   - Fix: added `binary_sensor.renault_scenic_e_tech_plug` -> `on` as trigger
+     `renault_plugged`.
+
+2. The staleness gate I had planned was WRONG - removed before it was ever written
+   - The Renault battery read 85% timestamped 2026-08-29, which looked stale. It was not:
+     `sensor.renault_scenic_e_tech_mileage` last changed 2026-08-26, i.e. the car had not
+     moved since before that reading, and `sensor.renault_scenic_e_tech_battery_autonomy`
+     refreshed at 13:25 the same day at 264.08 km, consistent with 85%.
+   - `homeassistant.update_entity` did not move the battery figure, which initially looked
+     like a broken feed but simply reflects a value that has not changed.
+   - Age is not the failure mode. A "must have reported since plug-in" gate would have
+     blocked a correct write. Gate dropped; a comment in the automation records why.
+
+3. Ohme was planning against the WRONG CAR - the vehicle-switch step is justified
+   - At plug-in `sensor.ohme_home_pro_vehicle_battery` went 84.0 -> 57.0. That 57 came from
+     `_cars[0]`, still the Honda. Ohme was sizing a Renault charge from the Honda's record.
+   - Switched `select.ohme_home_pro_vehicle` to `Renault Scenic (2023-2025)` manually.
+
+4. Trigger frequency, measured rather than guessed
+   - The Renault polls on a fixed 7-minute cadence and reports ~1% per poll at 7 kW.
+   - Session of 2026-08-25/26 (51% -> 91%, 22:30-03:35): 39 Renault battery changes, so the
+     automation would have fired 39 times. `sensor.ohme_home_pro_vehicle_battery` updated
+     only 3 times in the same 7 hours (52 -> 72 -> 75).
+   - A deadband was evaluated and REJECTED on the data: 39 fires unfiltered, 38 at a 2%
+     deadband, 37 at 3% - the gap is large, not marginal, so a deadband filters nothing.
+   - Adopted a 15-minute time throttle instead: ~20 writes on a 40% top-up, holding Ohme
+     within ~2%. Plug-in triggers bypass the throttle via `condition: trigger` on
+     `plugged_in`/`renault_plugged`, so the first write - the one Ohme plans the whole
+     session against - is never delayed.
+   - Caveat recorded: the 52/72/75 series was captured while the Honda was the selected
+     vehicle, and `client.battery` reads the selected car with a fallback to the session
+     car, so the exact drift magnitude is not cleanly attributable. The shape (Ohme updates
+     rarely and lags) is solid.
+
+Manual actions taken during the test (not config changes):
+- Switched the Ohme vehicle to the Renault.
+- Briefly turned the automation off to protect a manually-entered 50%, then back on.
+- Hand-fired the automation once with `skip_condition: false` at 13:37:53. Trace `finished`
+  at `action/1`; `number.utilities_ohme_home_pro_state_of_charge_input` and
+  `sensor.ohme_home_pro_vehicle_battery` both went 50.0 -> 85.0 at 13:37:54, while the
+  charge continued uninterrupted at ~7.0 kW. First end-to-end proof the write works and
+  does not disturb an active session.
+
+Validation:
+- [x] `ha core check` - "Command completed successfully."
+- [x] `automation.reload`; automation `on`.
+- [x] Hand-fired post-rework at 13:46:56: trace `failed_conditions` at `condition/3`
+      (Renault 85 == Ohme 85, nothing to write), no template errors - confirms the reworked
+      conditions parse and evaluate.
+- [x] Throttle arithmetic rendered via /api/template: 542s elapsed -> passes_15min = False.
+- [x] `make verify` - "No drift detected."
+- [ ] MANUAL: next plug-in. Confirm the `renault_plugged` trigger fires the write that the
+      `plugged_in` trigger cannot, and that mid-charge corrections land ~every 15 minutes.
+
+Rollback:
+- Backup before this rework: `/homeassistant/automations.yaml.bak.1788183873` (HA host).
+- Prior version's backup: `/homeassistant/automations.yaml.bak.1788181389`.
+- Restore either and run `automation.reload`.
+
+Open question for the user (not actioned):
+- Auto-approving charges via `button.ohme_home_pro_approve_charge` was raised. Not
+  implemented - it reverses the original "must not cause a charge" constraint and needs its
+  own decision on rate/timing guards. See the next entry if it is taken up.
+- Note `binary_sensor...intelligent_dispatching` has been `off` since 2026-08-28 06:40 while
+  the Octopus integration logs repeated KT-CT-4340 "Unable to fetch planned dispatches"
+  errors, so that sensor is currently unreliable for judging whether a charge is
+  Octopus-dispatched.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-08-31 - Sync Renault state of charge to Ohme on plug-in
 
 Summary:

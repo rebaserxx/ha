@@ -73,12 +73,8 @@ views:
         show_header_toggle: false
         state_color: true
         entities:
-          - entity: binary_sensor.octopus_energy_a_e86380df_octoplus_saving_sessions
-            name: Saving sessions
           - entity: calendar.octopus_energy_a_e86380df_octoplus_saving_sessions
             name: Saving sessions calendar
-          - entity: calendar.octopus_energy_a_e86380df_greener_nights
-            name: Greener Nights
           - entity: sensor.octopus_energy_a_e86380df_octoplus_points
             name: Octoplus points
           - entity: sensor.octopus_energy_a_e86380df_wheel_of_fortune_spins_electricity

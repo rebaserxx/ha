@@ -37,6 +37,113 @@ Implemented by:
 
 ---
 
+## 2026-08-31 - Clear Watchman missing-entity backlog; diagnose stalled Octopus gas feed
+
+Summary:
+- Investigated two persistent notifications: "Watchman Found Home Assistant Issues" (10 missing entities) and "Octopus Energy Gas Rollover Check Failed".
+- Watchman backlog resolved: 10 -> 0 missing entities. Three distinct causes, three distinct fixes.
+- Octopus gas rollover alert confirmed CORRECT and upstream. No config change made for it.
+
+Files changed:
+- /config/dashboards/utilities.yaml (removed 2 dead entity rows)
+- /config/.storage/core.config_entries (Watchman `ignored_items`, via the integration's own options flow - not a raw file edit)
+- CLAUDE.md (corrected stale Tado gas sync description)
+- docs/change_log.md
+- snapshots/homeassistant/* (re-synced from live)
+
+Details:
+
+1. Anglian Water (5 water_meter sensors unavailable)
+   - Config entry `anglian_water` was in `state=setup_error`, `reason=auth_expired`.
+   - A config-entry reload did NOT clear it (stored token could not refresh).
+   - Re-authenticated by the project user via the UI. All 5 sensors now reporting
+     (`sensor.water_meter_latest_reading` = 931.651).
+
+2. Ohme (3 entities: `sensor.ohme_home_pro_energy`, `select.ohme_home_pro_charge_mode`,
+   `sensor.ohme_home_pro_charge_slots`)
+   - Not broken: these are charge-session-scoped and go unavailable/unknown while
+     `sensor.ohme_home_pro_status` is `unplugged`. Integration is `loaded`; the other
+     14 Ohme entities are healthy.
+   - Added all three to Watchman `ignored_items` (30 -> 33 entries), matching the existing
+     precedent of `button.ohme_home_pro_approve_charge` already being ignored.
+   - Applied through the Watchman options flow API (POST /api/config/config_entries/options/flow),
+     which is the supported path; `.storage` was not hand-edited.
+
+3. Octopus legacy entities (2)
+   - On octopus_energy 19.0.1, `binary_sensor.octopus_energy_a_e86380df_octoplus_saving_sessions`
+     and `calendar.octopus_energy_a_e86380df_greener_nights` are no longer created by the
+     integration (only a vestigial REFRESH_RATE_IN_MINUTES_GREENNESS_FORECAST constant remains).
+     Both are permanently-unavailable orphans.
+   - Removed both rows from the Octoplus card in `dashboards/utilities.yaml` (lines 76-77, 80-81).
+   - Working replacements were already present on the card and remain:
+     `calendar.octopus_energy_a_e86380df_octoplus_saving_sessions` (state `off`) and
+     `event.octopus_energy_a_e86380df_octoplus_saving_session_events`.
+
+4. Octopus gas rollover check - NO CONFIG CHANGE (alert is accurate)
+   - Queried the Octopus API directly for half-hourly readings, BST-aligned local days:
+       2026-08-27  gas 48/48  elec 48/48
+       2026-08-28  gas 34/48 (stops 16:30)   elec 48/48
+       2026-08-29  gas 35/48 (starts 07:00)  elec 48/48
+       2026-08-30  gas 1 reading   elec 1 reading
+       2026-08-31  gas 0           elec 0
+   - Two gaps: a gas-only hole 28 Aug 17:00 -> 29 Aug 06:30, then BOTH meters stopped
+     reporting after 30 Aug 00:30 BST (DCC/WAN comms outage).
+   - The integration only publishes a complete day, so
+     `sensor...gas..._previous_accumulative_consumption_kwh` is correctly pinned at
+     27 Aug (1.651 m3 / 18.336 kWh). `supports_live_consumption` is false, so no Home Mini fallback.
+   - Downstream impact is contained by design: `sensor.octopus_gas_statistics_total` (102.778)
+     and `sensor.tado_gas_meter_register_derived` (27049.036) are frozen at 28 Aug; the weekly
+     Tado automation dates readings at the statistics horizon so it will simply submit an
+     older-dated reading once data recovers. `tado_gas_meter_submission_overdue_alert` would
+     not fire until ~8 Sept (last submission 28 Aug + 10 days).
+   - Action if unresolved in a few days: contact Octopus about smart-meter comms. Not an HA issue.
+
+Also noted (NOT actioned - see Outstanding below):
+- Four orphaned entity-registry entries remain, all permanently `unavailable` and now referenced
+  by nothing: `input_number.tado_gas_meter_register_m3` and
+  `automation.tado_submit_daily_gas_meter_reading_from_octopus` (leftovers from the 2026-07-12
+  statistics-derived rework, `config_entry_id: None`), plus the two dead Octopus entities above
+  (`platform: octopus_energy`, still attached to the loaded config entry but not recreated).
+- HA upgraded 2026.7.2 -> 2026.8.3, HassOS 18.1 -> 18.2, Supervisor 2026.07.3 -> 2026.08.0,
+  Docker 29.5.3 -> 29.6.2. Snapshots re-synced to match.
+
+Validation:
+- [x] `ha core check` - "Command completed successfully."
+- [x] Utilities dashboard force-reloaded from disk (WS `lovelace/config`, `force: true`); 66 entity
+      refs parsed, no dead refs remaining.
+- [x] Watchman report regenerated (`button.watchman_create_report_file`):
+      `sensor.watchman_missing_entities` 10 -> 0, `sensor.watchman_missing_actions` 0.
+- [x] `automation.system_watchman_daily_check` re-triggered; it dismissed its own notification.
+- [x] `make verify` - "No drift detected."
+- Notes:
+  - Both original notifications are now clear. The gas rollover check re-evaluates at 23:45 and
+    will legitimately re-raise while Octopus data remains incomplete - that is expected and correct.
+
+Rollback:
+- Backups taken before any mutation (epoch 1788180038, on the HA host):
+  - `/homeassistant/dashboards/utilities.yaml.bak.1788180038`
+  - `/homeassistant/.storage/core.config_entries.bak.1788180038`
+  - `/homeassistant/.storage/core.entity_registry.bak.1788180038`
+- Dashboard: restore the `.bak.1788180038` copy, then force-reload the dashboard.
+- Watchman ignore list: re-run the options flow and delete the three `sensor.ohme_*`/`select.ohme_*`
+  entries from `ignored_items`, or restore the `core.config_entries` backup and restart core.
+- Per repo policy these `.bak.*` files may be cleaned up after 7 days (i.e. on/after 2026-09-07),
+  with the deletion logged.
+
+Outstanding:
+- Removal of the four orphaned entity-registry entries was blocked by the local tooling's
+  permission classifier and was NOT performed. They are cosmetic clutter only (no YAML or
+  dashboard references remain). Removal is reversible - each has a stable `unique_id`, so if an
+  integration ever recreates them they return with the same entity_id.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-07-16 - Move gas rollover health check from 19:00 to 23:45
 
 Summary:

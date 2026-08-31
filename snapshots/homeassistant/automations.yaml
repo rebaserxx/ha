@@ -707,3 +707,74 @@
           data:
             notification_id: system_watchman_health
   mode: single
+
+- id: ev_ohme_sync_renault_state_of_charge
+  alias: EV - Sync Renault State of Charge to Ohme
+  description: >-
+    Push the Renault's true battery percentage into Ohme while it is plugged in at home,
+    so Ohme sizes the charge plan correctly now that Ohme's own Renault integration is
+    disabled. Writes only the state-of-charge input, which the integration maps to
+    PUT /v1/car/{id}/state-of-charge - it cannot start, approve or resume a charge.
+    Intelligent Octopus Go keeps control of when charging actually happens.
+    The charger is shared with a second vehicle (Honda e:Ny1) that has no Home Assistant
+    presence, so this only acts when the Renault itself reports plugged in AND at home,
+    and it selects the Renault in Ohme first because Ohme applies state-of-charge to
+    whichever vehicle is currently selected.
+  triggers:
+    - trigger: state
+      entity_id: sensor.ohme_home_pro_status
+      from: unplugged
+      not_to: ["unavailable", "unknown"]
+      id: plugged_in
+    - trigger: state
+      entity_id: sensor.renault_scenic_e_tech_battery
+      not_to: ["unavailable", "unknown"]
+      id: soc_refreshed
+  conditions:
+    # Ohme must have a car connected. state_of_charge_input is unavailable when unplugged.
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: sensor.ohme_home_pro_status
+          state: ["unplugged", "unavailable", "unknown"]
+    # The Renault must be the car on the end of this cable: plugged in, and at home.
+    # Without the location check, the Renault plugged in at work would make us switch
+    # Ohme to the Renault while the Honda is actually on the home charger.
+    - condition: state
+      entity_id: binary_sensor.renault_scenic_e_tech_plug
+      state: "on"
+    - condition: state
+      entity_id: device_tracker.renault_scenic_e_tech_location
+      state: home
+    # Usable reading, and only write when Ohme does not already agree.
+    - condition: template
+      value_template: >-
+        {% set r = states('sensor.renault_scenic_e_tech_battery') | float(-1) %}
+        {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
+        {{ 0 <= r <= 100 and (r | round(0) | int) != (o | round(0) | int) }}
+  actions:
+    # Ohme applies state-of-charge to the selected vehicle (client._cars[0]), so make sure
+    # that is the Renault before writing. This is PUT /v1/car/{id}/select - it cannot start
+    # a charge. The vehicle select uses the 30-minute device-info coordinator and its
+    # refresh is debounced, so allow it to land before writing.
+    - choose:
+        - conditions:
+            - condition: not
+              conditions:
+                - condition: state
+                  entity_id: select.ohme_home_pro_vehicle
+                  state: "Renault Scenic (2023-2025)"
+          sequence:
+            - action: select.select_option
+              target:
+                entity_id: select.ohme_home_pro_vehicle
+              data:
+                option: "Renault Scenic (2023-2025)"
+            - delay: "00:00:30"
+    - action: number.set_value
+      target:
+        entity_id: number.utilities_ohme_home_pro_state_of_charge_input
+      data:
+        value: "{{ states('sensor.renault_scenic_e_tech_battery') | float(0) | round(0) | int }}"
+  mode: single
+  max_exceeded: silent

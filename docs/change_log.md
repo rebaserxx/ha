@@ -37,6 +37,110 @@ Implemented by:
 
 ---
 
+## 2026-08-31 - Sync Renault state of charge to Ohme on plug-in
+
+Summary:
+- Ohme has disabled its own Renault integration, so Ohme no longer knows the car's real
+  battery level and sizes its charge plan from what it *thinks* it has added.
+- Added `ev_ohme_sync_renault_state_of_charge` to push the Renault's true percentage into
+  Ohme while it is plugged in at home. Informational only - it cannot start a charge.
+
+Files changed:
+- /config/automations.yaml (new automation appended)
+- /config/.storage/core.entity_registry (enabled one disabled-by-default entity)
+- CLAUDE.md, docs/dashboard_automation_plan.md (new item 12)
+- docs/change_log.md
+- snapshots/homeassistant/* (re-synced from live)
+
+Details:
+
+1. Enabled the entity that already existed for this
+   - HA 2026.8.3 ships `ohme==1.9.1`, whose number platform defines a `state_of_charge_input`
+     entity for exactly this purpose. It is `entity_registry_enabled_default=False` upstream,
+     so it had never appeared.
+   - Enabled `number.utilities_ohme_home_pro_state_of_charge_input` via
+     `config/entity_registry/update` (disabled_by -> None), then reloaded the ohme config
+     entry. Entity is live: min 0, max 100, step 1, unit %.
+   - Its upstream `available_fn` is `client.status.value != "unplugged"`, so the entity only
+     exists while a car is connected. The "only when plugged in" requirement is therefore
+     enforced by the integration, not just by automation conditions.
+
+2. Confirmed it cannot cause a charge (this was the explicit requirement)
+   - `OhmeApiClient.async_set_state_of_charge` issues exactly one request:
+       PUT /v1/car/{car_id}/state-of-charge   {"currentChargePercent": N}
+   - It never touches /chargeSessions/{serial}/approve, /resume, /stop, or max-charge.
+     Those are separate methods bound to separate entities (button.approve_charge,
+     select.charge_mode). The automation writes only the number, so it cannot request power.
+   - `switch.ohme_home_pro_require_approval` is on, so on a fresh plug-in the write lands
+     while the session is still PENDING_APPROVAL - a hard gate before any delivery.
+   - Caveat recorded: telling Ohme mid-session that the battery is emptier than it thought
+     may make it recompute and use more of its already-allowed window. That is correct
+     behaviour, not a new charge, but it is a behaviour change.
+
+3. Shared-charger handling
+   - The Ohme account lists two vehicles, `Honda e:Ny1 (2023-)` (selected at the time) and
+     `Renault Scenic (2023-2025)`. There are no Honda entities in HA at all.
+   - Ohme applies state-of-charge to the *selected* vehicle: the library resolves
+     `current_vehicle_id = self._cars[0]`, and documents "the selected vehicle is the first
+     one in this list". Writing without switching would have written the Renault's figure
+     onto the Honda's record.
+   - The automation therefore selects the Renault first (`PUT /v1/car/{id}/select`, also
+     incapable of starting a charge), then waits 30s. The vehicle select is backed by the
+     30-minute device-info coordinator and its post-set refresh is debounced, so the delay
+     is needed for `_cars[0]` to be the Renault before the write.
+   - The Renault is identified as the car on the cable by BOTH
+     `binary_sensor.renault_scenic_e_tech_plug` = on AND
+     `device_tracker.renault_scenic_e_tech_location` = home. The location check exists
+     because the Renault plugged in at work would otherwise make us switch Ohme to the
+     Renault while the Honda is on the home charger.
+
+4. Staleness handling
+   - `sensor.renault_scenic_e_tech_battery` had not updated since 2026-08-29T10:40 - only
+     5 samples in 3 days. The Renault cloud refreshes when the car phones home, not on demand.
+   - So the automation triggers on the Ohme plug-in AND on the Renault battery sensor
+     changing. The second trigger is what usually lands the accurate figure, once the car
+     reports in shortly after being plugged in.
+   - It skips the API write when Ohme already agrees to the nearest whole percent.
+
+Coordinator cadence noted for future work:
+- Ohme charge-session coordinator: 30 seconds (status, battery, mode, SoC value).
+- Ohme device-info coordinator: 30 minutes (vehicle list/selection, `_cars`).
+
+Validation:
+- [x] `ha core check` - "Command completed successfully."
+- [x] `automation.reload`; `automation.ev_sync_renault_state_of_charge_to_ohme` = on.
+- [x] Guard templates rendered against live state via /api/template:
+      ohme_status=unplugged, renault_plug=off, renault_loc=home, vehicle=Honda e:Ny1,
+      SOC_GUARD=True (renault=85.0, ohme=84.0). Automation correctly inert while unplugged,
+      and the 1% discrepancy confirms the underlying problem is real.
+- [x] `make verify` - "No drift detected."
+- [ ] MANUAL: first real plug-in of the Renault. Confirm
+      `binary_sensor.renault_scenic_e_tech_plug` actually flips to `on` (it has not changed
+      since the 2026-08-28 restart, so it is unproven), that the Ohme vehicle switches to
+      Renault, that `number.utilities_ohme_home_pro_state_of_charge_input` becomes available
+      and takes the value, and that no charge starts outside the Octopus-dispatched slots.
+
+Rollback:
+- Backup taken before mutation: `/homeassistant/automations.yaml.bak.1788181389` (on the HA host).
+- Disable or delete `ev_ohme_sync_renault_state_of_charge` in automations.yaml, reload automations.
+- Optionally re-disable `number.utilities_ohme_home_pro_state_of_charge_input` in
+  Settings > Entities, and reselect the Honda in `select.ohme_home_pro_vehicle`.
+- Earlier backups from today (epoch 1788180038) remain; per repo policy these `.bak.*` files
+  may be cleaned up after 7 days with the deletion logged.
+
+Known limitation:
+- The automation leaves `Renault Scenic (2023-2025)` selected in Ohme after it runs. A
+  subsequent Honda plug-in still needs the vehicle switched manually in the Ohme app - the
+  same manual step as before, just from a different starting point.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-08-31 - Clear Watchman missing-entity backlog; diagnose stalled Octopus gas feed
 
 Summary:

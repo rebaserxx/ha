@@ -293,6 +293,42 @@ Review focus:
 - Faster status scanning.
 - Dangerous controls are less prominent.
 
+### 12. Renault State-of-Charge Sync to Ohme
+
+Purpose:
+- Keep Ohme's charge planning accurate now that Ohme has disabled its own Renault
+  integration, without ever requesting power.
+
+Status:
+- Implemented on 2026-08-31 (`ev_ohme_sync_renault_state_of_charge`).
+
+Behavior:
+- Triggers when `sensor.ohme_home_pro_status` leaves `unplugged`, and again whenever
+  `sensor.renault_scenic_e_tech_battery` refreshes while still plugged in (the Renault
+  cloud is often hours stale at the moment of plug-in, so the second trigger is what
+  usually lands the accurate figure).
+- Writes only `number.utilities_ohme_home_pro_state_of_charge_input`, which the core
+  integration maps to `PUT /v1/car/{id}/state-of-charge`. It never touches
+  `select.ohme_home_pro_charge_mode`, `button.ohme_home_pro_approve_charge` or
+  `number.ohme_home_pro_target_percentage`, so it cannot start, approve or resume a charge.
+- Selects `Renault Scenic (2023-2025)` in Ohme first, because Ohme applies state-of-charge
+  to the currently selected vehicle (`client._cars[0]`).
+
+Files:
+- `snapshots/homeassistant/automations.yaml`
+- `docs/change_log.md`
+
+Review focus:
+- The charger is shared with a Honda e:Ny1 that has no Home Assistant presence. The
+  Renault is identified by `binary_sensor.renault_scenic_e_tech_plug` = `on` AND
+  `device_tracker.renault_scenic_e_tech_location` = `home`. Confirm on the first real
+  plug-in that the Renault plug sensor actually flips - it has not changed since the
+  2026-08-28 restart, so it is unproven.
+- The automation leaves `Renault` selected in Ohme afterwards. A subsequent Honda plug-in
+  still needs the vehicle switched manually in the Ohme app, exactly as before.
+- `number.utilities_ohme_home_pro_state_of_charge_input` is `entity_registry_enabled_default=False`
+  upstream; it was enabled manually. A future integration change could re-disable it.
+
 ## Per-Item Checklist
 
 For each implementation item:

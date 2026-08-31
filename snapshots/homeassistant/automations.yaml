@@ -803,3 +803,67 @@
         value: "{{ states('sensor.renault_scenic_e_tech_battery') | float(0) | round(0) | int }}"
   mode: single
   max_exceeded: silent
+
+- id: ev_ohme_auto_approve_renault_charge
+  alias: EV - Auto-Approve Ohme Charge for Renault
+  description: >-
+    Approve a pending Ohme charge session automatically when the Renault is the car on the
+    cable at home, so it does not sit waiting for a tap in the app.
+    UNLIKE ev_ohme_sync_renault_state_of_charge, this automation DELIBERATELY starts a charge.
+    It presses button.ohme_home_pro_approve_charge, which maps to
+    PUT /v1/chargeSessions/{serial}/approve?approve=true. Ohme and Intelligent Octopus Go
+    decide timing from there, but approving can begin delivery immediately at the prevailing
+    rate - on 2026-08-31 a manually approved smart_charge session went to 7 kW straight away
+    in the afternoon at 27.95p/kWh. That cost trade-off was reviewed and accepted by the
+    project user. Keep charge-causing actions in THIS automation only.
+  triggers:
+    - trigger: state
+      entity_id: sensor.ohme_home_pro_status
+      to: pending_approval
+      id: session_pending
+    # Ohme reaches pending_approval roughly 90s before the Renault confirms the plug, so at
+    # the moment of session_pending the plug condition below is usually still false. This
+    # second trigger is what actually carries the approval through.
+    - trigger: state
+      entity_id: binary_sensor.renault_scenic_e_tech_plug
+      to: "on"
+      id: renault_plugged
+  conditions:
+    - condition: state
+      entity_id: sensor.ohme_home_pro_status
+      state: pending_approval
+    # Only approve for the Renault. The charger is shared with a Honda e:Ny1 that has no
+    # Home Assistant presence, and auto-approving that car's sessions is not intended.
+    - condition: state
+      entity_id: binary_sensor.renault_scenic_e_tech_plug
+      state: "on"
+    - condition: state
+      entity_id: device_tracker.renault_scenic_e_tech_location
+      state: home
+    # Never auto-approve a flat-out max charge. Written as a negation on purpose:
+    # select.ohme_home_pro_charge_mode is `unavailable` during PENDING_APPROVAL because
+    # client.mode is None in that state, so requiring `smart_charge` would never pass.
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.ohme_home_pro_charge_mode
+          state: max_charge
+  actions:
+    # Let the state-of-charge sync land first so Ohme plans this session against the
+    # Renault's real battery level rather than a stale or wrong-vehicle figure. Approve
+    # anyway on timeout rather than leaving the car waiting indefinitely.
+    - wait_template: >-
+        {% set r = states('sensor.renault_scenic_e_tech_battery') | float(-1) %}
+        {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
+        {{ 0 <= r <= 100 and (r | round(0) | int) == (o | round(0) | int) }}
+      timeout: "00:05:00"
+      continue_on_timeout: true
+    # It may have been approved in the app while we waited.
+    - condition: state
+      entity_id: sensor.ohme_home_pro_status
+      state: pending_approval
+    - action: button.press
+      target:
+        entity_id: button.ohme_home_pro_approve_charge
+  mode: single
+  max_exceeded: silent

@@ -37,6 +37,75 @@ Implemented by:
 
 ---
 
+## 2026-08-31 - Add EV charge auto-approval for the Renault
+
+Summary:
+- Added `ev_ohme_auto_approve_renault_charge`, which presses
+  `button.ohme_home_pro_approve_charge` when the Renault plugs in at home.
+- This is the first automation in this repo that is allowed to cause charging, and is
+  deliberately kept separate from the state-of-charge sync for that reason.
+
+Files changed:
+- /config/automations.yaml
+- CLAUDE.md
+- docs/change_log.md
+- snapshots/homeassistant/* (re-synced from live)
+
+Details:
+- Approval maps to `PUT /v1/chargeSessions/{serial}/approve?approve=true`
+  (`OhmeApiClient.async_approve_charge`).
+- Per the project user: approving grants *permission* to charge, it does not force one.
+  Ohme and Intelligent Octopus Go still choose the slot, and IOG pays the off-peak rate
+  including on daytime dispatches, provided the charger is not in `max_charge`. That
+  corrects an earlier assumption in this log that an afternoon 7 kW session implied paying
+  the 27.95p/kWh day rate.
+- The automation therefore never touches `select.ohme_home_pro_charge_mode`, and refuses to
+  approve when it reads `max_charge`.
+- IMPORTANT implementation detail: that guard is a negation, not a `smart_charge`
+  requirement. `select.ohme_home_pro_charge_mode` is `unavailable` during PENDING_APPROVAL
+  (the library's `mode` property returns None for that session state), so a positive
+  `smart_charge` condition would never pass and the automation would never fire.
+- `button.ohme_home_pro_approve_charge` has
+  `available_fn=lambda client: client.status is ChargerStatus.PENDING_APPROVAL`, so it only
+  exists inside the approval window; the status condition keeps the press in that window.
+- Same Renault identification as the SoC sync: `binary_sensor.renault_scenic_e_tech_plug`
+  = on AND `device_tracker.renault_scenic_e_tech_location` = home, so the shared Honda's
+  sessions are never auto-approved.
+- Uses the same two-trigger pattern as the SoC sync, for the same reason: Ohme reaches
+  `pending_approval` ~90s before the Renault confirms the plug, so `session_pending` alone
+  fails its own plug condition and `renault_plugged` is what carries the approval through.
+- Before pressing, it waits (max 5 minutes, `continue_on_timeout: true`) for Ohme's battery
+  figure to match the Renault's, so the session is approved only once Ohme is planning
+  against the correct state of charge. In practice the SoC sync satisfies this within
+  ~35 seconds.
+
+Also validated in this session (state-of-charge sync rework from the previous entry):
+- 13:48:29 the Renault reported 86% while Ohme held 85%. Trace stopped at
+  `condition/4/conditions/1` - the 15-minute throttle - 10m36s after the previous write.
+  Live confirmation that the throttle suppresses mid-charge corrections as designed.
+
+Validation:
+- [x] `ha core check` - "Command completed successfully."
+- [x] `automation.reload`; `automation.ev_auto_approve_ohme_charge_for_renault` = on,
+      `last_triggered` None (correct - the current session was already approved by hand).
+- [x] `make verify` - "No drift detected."
+- [ ] MANUAL: next plug-in. Confirm the session is auto-approved within ~1 minute, that the
+      SoC write lands before the approval, and that Octopus credits the session at the
+      off-peak rate.
+
+Rollback:
+- Backup before this change: `/homeassistant/automations.yaml.bak.1788184425` (HA host).
+- Delete or disable `ev_ohme_auto_approve_renault_charge` and run `automation.reload`.
+  Disabling it restores the previous behaviour of approving manually in the Ohme app.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-08-31 - Rework Renault->Ohme SoC sync after first live plug-in test
 
 Summary:

@@ -37,6 +37,175 @@ Implemented by:
 
 ---
 
+## 2026-09-01 - Auto-approve and state-of-charge sync for the Honda e:Ny1
+
+Summary:
+- Added `ev_ohme_sync_honda_state_of_charge` and `ev_ohme_auto_approve_honda_charge`,
+  mirroring the two Renault EV automations for the second car on the shared Ohme charger.
+- Requested by the project user. NOTE: this supersedes the previous rule that
+  `ev_ohme_auto_approve_renault_charge` is "the only EV automation permitted to cause
+  charging" - there are now two, one per car. Everything else about that rule stands:
+  charge-causing actions live ONLY in the two auto-approve automations, never in the
+  state-of-charge syncs.
+
+Files changed:
+- /config/automations.yaml
+- CLAUDE.md
+- docs/dashboard_automation_plan.md
+- docs/homeassistant_configuration_reference.md
+- docs/change_log.md
+
+Details:
+- `ev_ohme_sync_honda_state_of_charge`: writes `sensor.e_ny1_battery` into
+  `number.utilities_ohme_home_pro_state_of_charge_input`, selecting
+  `"Honda e:Ny1 (2023-)"` in `select.ohme_home_pro_vehicle` first. Same
+  state-of-charge-only contract as the Renault version: no session endpoint is touched.
+- `ev_ohme_auto_approve_honda_charge`: presses `button.ohme_home_pro_approve_charge`.
+  DELIBERATELY starts a charge, same as the Renault equivalent.
+
+Key design differences from the Renault pair (these are deliberate, not copy-paste):
+1. Freshness gating. The Renault polls every ~7 minutes so its readings are trusted as-is.
+   The Honda's cloud data was measured 6h50m stale on 2026-09-01 while HA had just polled
+   the integration. Both Honda automations therefore press `button.e_ny1_refresh_from_car`
+   and wait for `sensor.e_ny1_last_updated` to come within 5 minutes of now before trusting
+   any Honda reading. Measured: a forced refresh returned fresh data in ~15s.
+   `continue_on_timeout: false` (2 min) - if the car will not report, the run ABORTS.
+   Safe failure mode is "no auto-approval, tap it in the app", never "approve on a guess".
+2. Tie-breaking. Both Honda automations stand down when
+   `binary_sensor.renault_scenic_e_tech_plug` is `on` AND
+   `device_tracker.renault_scenic_e_tech_location` is `home`. The Renault is the more
+   trustworthy sensor set, so it wins ties. The Renault automations were NOT given a
+   reciprocal Honda guard on purpose: that would let stale Honda data block known-good
+   Renault behaviour, which would be a regression.
+3. Mid-charge polling. The Renault streams ~40 updates per session; the Honda streams none
+   reliably. A `time_pattern` trigger every 15 minutes forces a refresh, but ONLY while
+   `select.ohme_home_pro_vehicle` is already the Honda AND `sensor.ohme_home_pro_status`
+   is `charging` - so the car is never woken while the Renault is the one charging.
+- Identification uses `device_tracker.e_ny1_location` (real GPS, `in_zones: [zone.home]`),
+  NOT `sensor.e_ny1_home_away`. Those two disagreed at the time of writing (`home` vs
+  `away`); the GPS tracker matches the pattern already used for the Renault.
+- Cost: Intelligent Octopus Go is registered against the CHARGE POINT
+  (`provider: OHME`, `vehicle_battery_size_in_kwh: None`), not against a specific vehicle,
+  so the Honda receives the same dispatch/off-peak treatment as the Renault. The cost
+  trade-off accepted on 2026-08-31 therefore carries over unchanged.
+- Also corrected two now-false comments in the Renault automations that asserted the Honda
+  "has no Home Assistant presence".
+
+Validation:
+- [x] YAML parses; 27 automations, no duplicate IDs
+- [x] Every entity referenced by both new automations confirmed present in `/api/states`
+- [x] Ohme vehicle option string confirmed exactly `"Honda e:Ny1 (2023-)"`; Honda plug
+      states confirmed as `plugged_in`/`connected` vs `unplugged`/`disconnected`
+- [x] `ha core check` -> "Command completed successfully." (run twice: after the
+      automations were added, and again after the comment corrections)
+- [ ] **Automation reload NOT YET RUN** - the reload call was blocked by the sandbox.
+      `/config/automations.yaml` on the live server contains the new automations and
+      passes validation, but HA has not loaded them: `automation.ev_*_honda_*` do not
+      exist as entities yet. They will load on the next reload or HA restart.
+- [ ] First real Honda plug-in unobserved. Entirely unproven end to end - see below.
+
+Rollback:
+- Restore `/homeassistant/automations.yaml.bak.1788292807`, then reload automations.
+- To disable without reverting the file, turn off `automation.ev_auto_approve_ohme_charge_for_honda`
+  and `automation.ev_sync_honda_state_of_charge_to_ohme` in the UI.
+
+Review focus for the first real Honda session:
+- The Honda integration was installed 2026-09-01 ~19:41 and has NO recorded history:
+  `sensor.e_ny1_plug_status` has never been observed changing from `unplugged`, so the
+  plug-detection path is unproven exactly as the Renault's was on 2026-08-28.
+- Confirm `sensor.e_ny1_plug_status` actually reports `plugged_in` or `connected` on a real
+  plug-in, and how long after the plug Ohme/the car agree.
+- Confirm the forced refresh still returns within the 2-minute timeout when the car has been
+  parked and asleep for hours, rather than only when recently driven.
+- Confirm the 15-minute tick keeps Ohme's figure tracking the Honda through a long charge.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
+## 2026-09-01 - Surface the Honda e:Ny1 integration on the dashboards
+
+Summary:
+- The Honda e:Ny1 now has a Home Assistant presence (My Honda+ custom integration,
+  43 entities under the `e_ny1_*` slug). Previous docs recorded the Honda as having
+  no HA entities at all; that is no longer true.
+- Added the Honda to the Utilities dashboard alongside the existing Renault cards,
+  and added the My Honda+ integration to the Home Health update card.
+- Display/controls only. No automation was added or changed.
+
+Files changed:
+- /config/dashboards/utilities.yaml
+- /config/dashboards/home_health.yaml
+- docs/homeassistant_configuration_reference.md
+- docs/dashboard_automation_plan.md
+- CLAUDE.md
+- docs/change_log.md
+
+Details:
+- `utilities.yaml`:
+  - "At A Glance": added `sensor.e_ny1_battery` (Honda battery) and
+    `sensor.e_ny1_range_climate_off` (Honda range) after the two Renault rows.
+  - "EV Charging": added `select.ohme_home_pro_vehicle` as "Ohme selected vehicle".
+    The charger is shared between both cars and both are now visible in HA, so which
+    vehicle Ohme is pointed at is the key disambiguator when reading Ohme's figures.
+  - New card "Honda e:Ny1" (mirrors the Renault Scenic card): battery, range
+    (climate off/on), charge status, plug status, charge mode, time to full charge,
+    odometer, location, last updated.
+  - New card "Honda e:Ny1 Vehicle": door lock, doors, windows, hood, trunk, lights,
+    ignition, interior temperature, warning lamps.
+  - New card "Honda e:Ny1 This Month": distance, driving time, trips, avg consumption.
+  - "EV Controls": added `number.e_ny1_charge_limit_home`,
+    `number.e_ny1_charge_limit_away`, `switch.e_ny1_charging`, `switch.e_ny1_climate`,
+    `button.e_ny1_refresh_from_car`.
+- `home_health.yaml`:
+  - "Custom Integration Updates": added `update.my_honda_update` as "My Honda+".
+- Entity choice notes:
+  - Used `sensor.e_ny1_range_climate_off` rather than `sensor.e_ny1_total_range` for
+    range; `total_range` read 0.0 while the climate-off/on pair read 333/315 km.
+  - `switch.e_ny1_charging` is a charge-causing control, but it acts on the car via the
+    Honda cloud, not on Ohme, and it is a manual dashboard control on an admin-only
+    dashboard - directly analogous to the pre-existing
+    `button.renault_scenic_e_tech_start_charge` row. No automation touches it. The
+    "only `ev_ohme_auto_approve_renault_charge` may cause charging" rule is about
+    automations and is unaffected.
+
+Validation:
+- [x] `ha core check` -> "Command completed successfully."
+- [x] Read-back over WebSocket `lovelace/config` for `energy-utilities` and
+      `home-health`: HA serves 12 and 6 cards respectively, with the three new Honda
+      cards present and Honda rows in At A Glance (2), EV Controls (5) and Custom
+      Integration Updates (1).
+- [x] `make verify` -> "No drift detected"
+- [x] All 87 (utilities) / 28 (home_health) referenced entity IDs confirmed to exist in
+      `/api/states`, so no new Watchman missing-entity backlog is introduced.
+- Notes:
+  - YAML-mode dashboards are re-read by HA; no core restart was required.
+
+Rollback:
+- Restore `/homeassistant/dashboards/utilities.yaml.bak.1788291996` and
+  `/homeassistant/dashboards/home_health.yaml.bak.1788291996`, then `make sync-ha`.
+
+Follow-ups (not done, needs a decision):
+- `automations.yaml` still carries three comments asserting the Honda "has no Home
+  Assistant presence" (near the SoC sync and auto-approve automations). Those comments
+  are now factually stale. Left untouched because this change was dashboards-only and
+  those are the sensitive EV automations.
+- Now that `sensor.e_ny1_plug_status` and `device_tracker.e_ny1_location` exist, the
+  Renault auto-approve and SoC-sync automations could positively confirm the Honda is
+  not the car on the charger, instead of inferring it from Renault sensors alone.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-08-31 - Add EV charge auto-approval for the Renault
 
 Summary:

@@ -50,9 +50,10 @@ Last verified on 2026-07-12.
   - Also defines the hot water pump runtime timer helper.
 
 ## Custom Integrations Installed (Live Server)
-Verified on 2026-02-22 from `/homeassistant/custom_components`:
+Verified on 2026-09-01 from `/homeassistant/custom_components`:
 - `hacs`
 - `meross_lan`
+- `myhondaplus` (My Honda+; Honda e:Ny1, ~43 entities under the `e_ny1_*` slug)
 - `octopus_energy`
 - `watchman`
 
@@ -87,6 +88,7 @@ Policy reference:
 - See `docs/codex_change_playbook.md` backup lifecycle policy for retention and cleanup.
 
 ## Current Automation Inventory
+Verified on 2026-09-01 from `/config/automations.yaml` (27 automations):
 - `lighting_common_evening_sunset_on_seasonal`
 - `lighting_overnight_shutdown_0200`
 - `lighting_common_weekday_morning_0620_presunrise`
@@ -101,12 +103,19 @@ Policy reference:
 - `lighting_front_porch_off_2300`
 - `lighting_front_porch_on_0620_presunrise`
 - `lighting_front_porch_off_at_sunrise`
+- `lighting_front_porch_motion_overnight`
 - `hot_water_pump_follow_tado_on_for_1h`
 - `hot_water_pump_off_when_runtime_finishes`
 - `hot_water_pump_manual_auto_off_30m`
 - `tado_gas_meter_reading_weekly_from_octopus`
 - `tado_gas_meter_submission_overdue_alert`
 - `octopus_energy_gas_rollover_health_daily_check`
+- `system_backup_stale_daily_check`
+- `system_watchman_daily_check`
+- `ev_ohme_sync_renault_state_of_charge`
+- `ev_ohme_auto_approve_renault_charge`
+- `ev_ohme_sync_honda_state_of_charge`
+- `ev_ohme_auto_approve_honda_charge`
 
 ## Current Script Inventory
 - `lighting_apply_profile_core`
@@ -126,9 +135,17 @@ Policy reference:
   - `Home Health`
     - file: `/config/dashboards/home_health.yaml`
     - purpose: admin-only system health view for backups, Watchman, updates, and network gateway status
+    - custom integration updates tracked: HACS, Meross LAN, My Honda+, Octopus Energy, Watchman
   - `Utilities`
     - file: `/config/dashboards/utilities.yaml`
-    - purpose: admin-only operational view for Octopus, Ohme, Renault, water, gas, and hot water
+    - purpose: admin-only operational view for Octopus, Ohme, Renault, Honda, water, gas, and hot water
+    - cards: At A Glance, Electricity, Gas, Octoplus, EV Charging, Renault Scenic,
+      Honda e:Ny1, Honda e:Ny1 Vehicle, Honda e:Ny1 This Month, EV Controls, Water, Hot Water
+    - EV note: the Ohme charger is shared between the Renault Scenic and the Honda e:Ny1.
+      Both cars now have their own HA entities, so Ohme's own readings
+      (`sensor.ohme_home_pro_vehicle_battery` and friends) describe whichever car
+      `select.ohme_home_pro_vehicle` currently names - that select is on the EV Charging
+      card for exactly this reason. Prefer the per-car sensors when you need a specific car.
   - `Appliances`
     - file: `/config/dashboards/appliances.yaml`
     - purpose: ovens, dishwasher, and dryer status, remaining time, and admin-only controls

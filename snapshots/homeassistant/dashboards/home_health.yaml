@@ -85,6 +85,8 @@ views:
             name: HACS
           - entity: update.meross_lan_update
             name: Meross LAN
+          - entity: update.my_honda_update
+            name: My Honda+
           - entity: update.octopus_energy_update
             name: Octopus Energy
           - entity: update.watchman_update

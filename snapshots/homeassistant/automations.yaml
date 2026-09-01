@@ -718,9 +718,12 @@
     Writes only the state-of-charge input, which the integration maps to
     PUT /v1/car/{id}/state-of-charge - it touches no session endpoint, so it cannot start,
     approve or resume a charge. Intelligent Octopus Go keeps control of when charging happens.
-    The charger is shared with a Honda e:Ny1 that has no Home Assistant presence, so this only
-    acts when the Renault itself reports plugged in AND at home, and it selects the Renault in
-    Ohme first because Ohme applies state-of-charge to whichever vehicle is currently selected.
+    The charger is shared with a Honda e:Ny1, which since 2026-09-01 has its own Home
+    Assistant entities and its own paired automation (ev_ohme_sync_honda_state_of_charge).
+    This one still acts only when the Renault itself reports plugged in AND at home, and it
+    selects the Renault in Ohme first because Ohme applies state-of-charge to whichever
+    vehicle is currently selected. The two cars cannot both act: the Honda automations stand
+    down whenever the Renault reports plugged in at home, so the Renault wins any tie.
   triggers:
     # Ohme sees the plug-in first - typically ~90s before the Renault cloud catches up.
     - trigger: state
@@ -832,8 +835,9 @@
     - condition: state
       entity_id: sensor.ohme_home_pro_status
       state: pending_approval
-    # Only approve for the Renault. The charger is shared with a Honda e:Ny1 that has no
-    # Home Assistant presence, and auto-approving that car's sessions is not intended.
+    # Only approve for the Renault. The Honda e:Ny1 on the same charger has its own
+    # auto-approve automation (ev_ohme_auto_approve_honda_charge) as of 2026-09-01; that one
+    # stands down whenever these Renault conditions hold, so the Renault wins any tie.
     - condition: state
       entity_id: binary_sensor.renault_scenic_e_tech_plug
       state: "on"
@@ -856,6 +860,223 @@
         {% set r = states('sensor.renault_scenic_e_tech_battery') | float(-1) %}
         {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
         {{ 0 <= r <= 100 and (r | round(0) | int) == (o | round(0) | int) }}
+      timeout: "00:05:00"
+      continue_on_timeout: true
+    # It may have been approved in the app while we waited.
+    - condition: state
+      entity_id: sensor.ohme_home_pro_status
+      state: pending_approval
+    - action: button.press
+      target:
+        entity_id: button.ohme_home_pro_approve_charge
+  mode: single
+  max_exceeded: silent
+
+- id: ev_ohme_sync_honda_state_of_charge
+  alias: EV - Sync Honda State of Charge to Ohme
+  description: >-
+    Keep Ohme's idea of the Honda e:Ny1's battery level correct while it is plugged in at
+    home. Mirrors ev_ohme_sync_renault_state_of_charge for the second car on the shared
+    charger. Writes only the state-of-charge input, which the integration maps to
+    PUT /v1/car/{id}/state-of-charge - it touches no session endpoint, so it cannot start,
+    approve or resume a charge. Intelligent Octopus Go keeps control of when charging happens.
+    DIFFERENCE FROM THE RENAULT: the Renault polls every ~7 minutes, so its readings can be
+    trusted as-is. The Honda's cloud data can be many hours stale - measured 6h50m old on
+    2026-09-01 while HA had just polled the integration. So this automation presses
+    button.e_ny1_refresh_from_car and waits for sensor.e_ny1_last_updated to advance before
+    trusting ANY Honda reading, and aborts rather than writing a stale figure. A forced
+    refresh returned fresh data in ~15s when measured on 2026-09-01.
+    The Renault wins ties: if the Renault reports plugged in at home, this automation stands
+    down, because the Renault's sensors are the more trustworthy of the two.
+  triggers:
+    # Ohme sees the plug-in first, before either car's cloud catches up.
+    - trigger: state
+      entity_id: sensor.ohme_home_pro_status
+      from: unplugged
+      not_to: ["unavailable", "unknown"]
+      id: plugged_in
+    - trigger: state
+      entity_id: sensor.e_ny1_plug_status
+      to: ["plugged_in", "connected"]
+      id: honda_plugged
+    - trigger: state
+      entity_id: sensor.e_ny1_battery
+      not_to: ["unavailable", "unknown"]
+      id: soc_refreshed
+    # The Honda does not stream updates through a charge the way the Renault does (~40 per
+    # session), so poll it while it is the car Ohme is actually charging. Waking the car
+    # this often is acceptable precisely because it is sitting on mains at the time.
+    - trigger: time_pattern
+      minutes: "/15"
+      id: charge_tick
+  conditions:
+    # Ohme must have a car connected. state_of_charge_input is unavailable when unplugged.
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: sensor.ohme_home_pro_status
+          state: ["unplugged", "unavailable", "unknown"]
+    # Stand down if the Renault says it is the car on this cable.
+    - condition: not
+      conditions:
+        - condition: and
+          conditions:
+            - condition: state
+              entity_id: binary_sensor.renault_scenic_e_tech_plug
+              state: "on"
+            - condition: state
+              entity_id: device_tracker.renault_scenic_e_tech_location
+              state: home
+    # The periodic tick only applies once the Honda has been positively identified and
+    # selected for this session, otherwise it would wake the car while the Renault charges.
+    - condition: or
+      conditions:
+        - condition: not
+          conditions:
+            - condition: trigger
+              id: charge_tick
+        - condition: and
+          conditions:
+            - condition: state
+              entity_id: select.ohme_home_pro_vehicle
+              state: "Honda e:Ny1 (2023-)"
+            - condition: state
+              entity_id: sensor.ohme_home_pro_status
+              state: charging
+    # Mid-charge corrections are throttled. Plug-in triggers bypass the throttle - that
+    # write sets the figure Ohme plans the whole session against.
+    - condition: or
+      conditions:
+        - condition: trigger
+          id: ["plugged_in", "honda_plugged"]
+        - condition: template
+          value_template: >-
+            {{ this.attributes.last_triggered is none
+               or (now() - this.attributes.last_triggered).total_seconds() > 870 }}
+  actions:
+    # Force fresh data before trusting any Honda sensor. Abort on timeout: writing a stale
+    # battery figure is worse than not writing at all, because Ohme would plan against it.
+    - action: button.press
+      target:
+        entity_id: button.e_ny1_refresh_from_car
+    - wait_template: >-
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {{ t is not none and (now() - t).total_seconds() < 300 }}
+      timeout: "00:02:00"
+      continue_on_timeout: false
+    # Only now that the data is known fresh, confirm the Honda is the car on this cable.
+    - condition: state
+      entity_id: sensor.e_ny1_plug_status
+      state: ["plugged_in", "connected"]
+    - condition: state
+      entity_id: device_tracker.e_ny1_location
+      state: home
+    # Usable reading, and only write when Ohme does not already agree.
+    - condition: template
+      value_template: >-
+        {% set h = states('sensor.e_ny1_battery') | float(-1) %}
+        {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
+        {{ 0 <= h <= 100 and (h | round(0) | int) != (o | round(0) | int) }}
+    # Ohme applies state-of-charge to the selected vehicle, so make sure that is the Honda
+    # before writing. This is PUT /v1/car/{id}/select - it cannot start a charge. The
+    # vehicle select uses the 30-minute device-info coordinator and its refresh is
+    # debounced, so allow it to land before writing.
+    - choose:
+        - conditions:
+            - condition: not
+              conditions:
+                - condition: state
+                  entity_id: select.ohme_home_pro_vehicle
+                  state: "Honda e:Ny1 (2023-)"
+          sequence:
+            - action: select.select_option
+              target:
+                entity_id: select.ohme_home_pro_vehicle
+              data:
+                option: "Honda e:Ny1 (2023-)"
+            - delay: "00:00:30"
+    - action: number.set_value
+      target:
+        entity_id: number.utilities_ohme_home_pro_state_of_charge_input
+      data:
+        value: "{{ states('sensor.e_ny1_battery') | float(0) | round(0) | int }}"
+  mode: single
+  max_exceeded: silent
+
+- id: ev_ohme_auto_approve_honda_charge
+  alias: EV - Auto-Approve Ohme Charge for Honda
+  description: >-
+    Approve a pending Ohme charge session automatically when the Honda e:Ny1 is the car on
+    the cable at home, so it does not sit waiting for a tap in the app. Mirrors
+    ev_ohme_auto_approve_renault_charge.
+    LIKE THAT AUTOMATION, THIS ONE DELIBERATELY STARTS A CHARGE. It presses
+    button.ohme_home_pro_approve_charge, which maps to
+    PUT /v1/chargeSessions/{serial}/approve?approve=true, and delivery can begin immediately
+    at the prevailing rate rather than waiting for an off-peak slot. Intelligent Octopus Go
+    is registered against the CHARGE POINT (provider OHME, vehicle_battery_size_in_kwh None),
+    not against a specific car, so the Honda gets the same dispatch treatment the Renault
+    gets and the cost trade-off the project user accepted on 2026-08-31 carries over.
+    Identification is gated on FRESH Honda data: the run forces a refresh-from-car and aborts
+    if the car does not report back within 2 minutes, so a stale reading can never approve a
+    session. The safe failure mode is "no auto-approval, tap it in the app".
+  triggers:
+    - trigger: state
+      entity_id: sensor.ohme_home_pro_status
+      to: pending_approval
+      id: session_pending
+    # Ohme reaches pending_approval before the Honda cloud confirms the plug, so the car
+    # confirming is also a trigger, otherwise the run above fails its plug check and
+    # nothing ever retries it.
+    - trigger: state
+      entity_id: sensor.e_ny1_plug_status
+      to: ["plugged_in", "connected"]
+      id: honda_plugged
+  conditions:
+    - condition: state
+      entity_id: sensor.ohme_home_pro_status
+      state: pending_approval
+    # Stand down if the Renault says it is the car on this cable - it owns approval then.
+    - condition: not
+      conditions:
+        - condition: and
+          conditions:
+            - condition: state
+              entity_id: binary_sensor.renault_scenic_e_tech_plug
+              state: "on"
+            - condition: state
+              entity_id: device_tracker.renault_scenic_e_tech_location
+              state: home
+    # Never auto-approve a flat-out max charge. Written as a negation on purpose:
+    # select.ohme_home_pro_charge_mode is `unavailable` during PENDING_APPROVAL because
+    # client.mode is None in that state, so requiring `smart_charge` would never pass.
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.ohme_home_pro_charge_mode
+          state: max_charge
+  actions:
+    # Prove the Honda is really the car on the cable before approving anything.
+    - action: button.press
+      target:
+        entity_id: button.e_ny1_refresh_from_car
+    - wait_template: >-
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {{ t is not none and (now() - t).total_seconds() < 300 }}
+      timeout: "00:02:00"
+      continue_on_timeout: false
+    - condition: state
+      entity_id: sensor.e_ny1_plug_status
+      state: ["plugged_in", "connected"]
+    - condition: state
+      entity_id: device_tracker.e_ny1_location
+      state: home
+    # Let the state-of-charge sync land first so Ohme plans this session against the
+    # Honda's real battery level rather than a stale or wrong-vehicle figure. Approve
+    # anyway on timeout rather than leaving the car waiting indefinitely.
+    - wait_template: >-
+        {% set h = states('sensor.e_ny1_battery') | float(-1) %}
+        {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
+        {{ 0 <= h <= 100 and (h | round(0) | int) == (o | round(0) | int) }}
       timeout: "00:05:00"
       continue_on_timeout: true
     # It may have been approved in the app while we waited.

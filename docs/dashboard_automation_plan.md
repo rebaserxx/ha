@@ -319,9 +319,13 @@ Files:
 - `docs/change_log.md`
 
 Review focus:
-- The charger is shared with a Honda e:Ny1 that has no Home Assistant presence. The
-  Renault is identified by `binary_sensor.renault_scenic_e_tech_plug` = `on` AND
-  `device_tracker.renault_scenic_e_tech_location` = `home`. Confirm on the first real
+- The charger is shared with a Honda e:Ny1, which as of 2026-09-01 has its own Home
+  Assistant presence (My Honda+ custom integration, `e_ny1_*` entities) and its own paired
+  automations - see item 13. The Renault is still identified solely by
+  `binary_sensor.renault_scenic_e_tech_plug` = `on` AND
+  `device_tracker.renault_scenic_e_tech_location` = `home`, deliberately unchanged: adding a
+  Honda guard here would let stale Honda data block known-good Renault behaviour. Exclusion
+  is enforced on the Honda side instead, so the Renault wins any tie. Confirm on the first real
   plug-in that the Renault plug sensor actually flips - it has not changed since the
   2026-08-28 restart, so it is unproven.
 - The automation leaves `Renault` selected in Ohme afterwards. A subsequent Honda plug-in
@@ -342,3 +346,43 @@ For each implementation item:
 7. Run `make verify`.
 8. Update `docs/change_log.md`.
 9. Leave manual behavior checks clearly listed.
+
+## 13. Honda e:Ny1 EV automations (added 2026-09-01)
+
+Purpose:
+- Give the Honda e:Ny1 the same two behaviours the Renault has on the shared Ohme charger:
+  auto-approve a pending session, and keep Ohme's state-of-charge figure correct.
+
+Status:
+- Deployed to `/config/automations.yaml` and passing `ha core check`.
+- NOT YET LOADED: the automation reload was blocked by the sandbox, so
+  `automation.ev_*_honda_*` do not exist as entities yet. Needs a reload or restart.
+- Unproven end to end. No real Honda plug-in has been observed.
+
+Files touched:
+- `/config/automations.yaml`
+- `snapshots/homeassistant/automations.yaml`
+- `docs/change_log.md`
+
+Automations:
+- `ev_ohme_sync_honda_state_of_charge` - state-of-charge write only, cannot cause charging.
+- `ev_ohme_auto_approve_honda_charge` - DELIBERATELY causes charging, same contract as the
+  Renault equivalent.
+
+Review focus:
+- The Honda integration was installed 2026-09-01 ~19:41 with no recorded history.
+  `sensor.e_ny1_plug_status` has never been observed leaving `unplugged`, so plug detection
+  is unproven, exactly as the Renault's was on 2026-08-28. Watch the first real plug-in.
+- Honda cloud data was measured 6h50m stale while HA had just polled the integration. Both
+  automations force `button.e_ny1_refresh_from_car` and require
+  `sensor.e_ny1_last_updated` within 5 minutes, aborting after a 2-minute timeout. A forced
+  refresh returned in ~15s when the car had been parked ~7h - confirm this still holds when
+  the car has been asleep longer.
+- `device_tracker.e_ny1_location` (GPS, `in_zones: [zone.home]`) is used for the at-home
+  test. `sensor.e_ny1_home_away` disagreed with it (`away` vs `home`) at the time of
+  writing and is deliberately not used. Worth understanding which is authoritative.
+- The 15-minute mid-charge refresh tick is gated on the Honda already being selected in Ohme
+  AND Ohme `charging`, so it should never wake the car during a Renault session. Confirm.
+- Intelligent Octopus Go is registered to the charge point, not a vehicle
+  (`provider: OHME`, `vehicle_battery_size_in_kwh: None`), so the Honda should get the same
+  off-peak dispatch treatment. Confirm on a real session before relying on it.

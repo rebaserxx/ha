@@ -19,6 +19,10 @@ views:
             name: Renault battery
           - entity: sensor.renault_scenic_e_tech_battery_autonomy
             name: Renault range
+          - entity: sensor.e_ny1_battery
+            name: Honda battery
+          - entity: sensor.e_ny1_range_climate_off
+            name: Honda range
           - entity: binary_sensor.hot_water_power
             name: Hot water demand
           - entity: switch.hot_water_pump
@@ -89,6 +93,8 @@ views:
         entities:
           - entity: sensor.ohme_home_pro_status
             name: Ohme status
+          - entity: select.ohme_home_pro_vehicle
+            name: Ohme selected vehicle
           - entity: select.ohme_home_pro_charge_mode
             name: Ohme charge mode
           - entity: sensor.ohme_home_pro_power
@@ -133,6 +139,70 @@ views:
             name: Mileage
 
       - type: entities
+        title: Honda e:Ny1
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.e_ny1_battery
+            name: Battery
+          - entity: sensor.e_ny1_range_climate_off
+            name: Range (climate off)
+          - entity: sensor.e_ny1_range_climate_on
+            name: Range (climate on)
+          - entity: sensor.e_ny1_charge_status
+            name: Charge status
+          - entity: sensor.e_ny1_plug_status
+            name: Plug status
+          - entity: sensor.e_ny1_charge_mode
+            name: Charge mode
+          - entity: sensor.e_ny1_time_to_full_charge
+            name: Time to full charge
+          - entity: sensor.e_ny1_odometer
+            name: Odometer
+          - entity: device_tracker.e_ny1_location
+            name: Location
+          - entity: sensor.e_ny1_last_updated
+            name: Last updated
+
+      - type: entities
+        title: Honda e:Ny1 Vehicle
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: lock.e_ny1_doors
+            name: Door lock
+          - entity: binary_sensor.e_ny1_doors
+            name: Doors
+          - entity: binary_sensor.e_ny1_windows
+            name: Windows
+          - entity: binary_sensor.e_ny1_hood
+            name: Hood
+          - entity: binary_sensor.e_ny1_trunk
+            name: Trunk
+          - entity: binary_sensor.e_ny1_lights
+            name: Lights
+          - entity: sensor.e_ny1_ignition
+            name: Ignition
+          - entity: sensor.e_ny1_interior_temperature
+            name: Interior temperature
+          - entity: sensor.e_ny1_warning_lamps
+            name: Warning lamps
+
+      - type: entities
+        title: Honda e:Ny1 This Month
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.e_ny1_distance_this_month
+            name: Distance
+          - entity: sensor.e_ny1_driving_time_this_month
+            name: Driving time
+          - entity: sensor.e_ny1_trips_this_month
+            name: Trips
+          - entity: sensor.e_ny1_avg_consumption_this_month
+            name: Average consumption
+
+      - type: entities
         title: EV Controls
         show_header_toggle: false
         state_color: true
@@ -153,6 +223,16 @@ views:
             name: Start Renault charge
           - entity: button.renault_scenic_e_tech_stop_charge
             name: Stop Renault charge
+          - entity: number.e_ny1_charge_limit_home
+            name: Honda charge limit (home)
+          - entity: number.e_ny1_charge_limit_away
+            name: Honda charge limit (away)
+          - entity: switch.e_ny1_charging
+            name: Honda charging
+          - entity: switch.e_ny1_climate
+            name: Honda climate
+          - entity: button.e_ny1_refresh_from_car
+            name: Refresh Honda from car
 
       - type: entities
         title: Water

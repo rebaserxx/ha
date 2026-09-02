@@ -37,6 +37,87 @@ Implemented by:
 
 ---
 
+## 2026-09-02 - Fix wrong-car identification on the shared Ohme charger
+
+Summary:
+- The Honda automations were never loaded (the 2026-09-01 reload was blocked and never run),
+  which is why nothing happened when the Honda was plugged in. Reloaded; all four EV
+  automations are now live.
+- While diagnosing that, found a REAL DEFECT in the pre-existing Renault auto-approve
+  automation: it approved a Honda charging session as if it were the Renault.
+- Reworked car identification in all four EV automations to "settle then decide".
+
+Files changed:
+- /config/automations.yaml
+- docs/change_log.md
+- docs/dashboard_automation_plan.md
+- CLAUDE.md
+
+The 2026-09-02 17:23 incident (evidence from history + automation trace):
+- 17:23:11 Renault unplugged, Honda plugged in. Ohme -> `pending_approval`.
+- `binary_sensor.renault_scenic_e_tech_plug` was STILL `on` and only flipped `off` at
+  17:23:57 - stale by 46s. `sensor.e_ny1_plug_status` did not report `plugged_in` until
+  17:23:43. So for ~32-46s BOTH cars appeared to claim the cable.
+- `ev_ohme_auto_approve_renault_charge` triggered at 17:23:11 and passed all conditions on
+  that stale data. Trace run_id 8b4c14d5d400593effba0611fcb3ea06 shows `action/0`,
+  `action/1`, `action/2` all executed with `script_execution: finished` - i.e. it DID press
+  `button.ohme_home_pro_approve_charge`.
+- Its SoC-match wait (`action/0`) should have held it up, but passed instantly: at 17:23:11
+  the Renault read 90 and `sensor.ohme_home_pro_vehicle_battery` still read 90, because Ohme
+  had not yet switched its own figure to the Honda's 59. It changed to 59.0 at 17:23:11.
+- Net effect: Ohme -> `plugged_in` at 17:23:13 (approved ~2s in), charging 17:25-17:31 at
+  ~7kW, then stopped. `switch.ohme_home_pro_require_approval` is `on`, so this automation
+  was genuinely the approver.
+
+Root causes:
+1. Car identity was read INSTANTANEOUSLY at trigger time, during the exact window when both
+   cars' plug sensors disagree with reality.
+2. The SoC-match wait compared two bare numbers without checking WHICH car Ohme's figure
+   described, so it matched against the outgoing car's value.
+
+Fix - "settle then decide", applied to all four EV automations:
+- Car-identity checks moved OUT of `conditions:` and INTO the action sequence, behind a
+  shared settle gate that waits until exactly one car claims the cable:
+  `{{ (renault_plugged and renault_home) != (honda_plugged and honda_home) }}`
+  timeout 3 minutes, `continue_on_timeout: false` (no decision = no action).
+- Both SoC-match waits now also require `select.ohme_home_pro_vehicle` to name the expected
+  car, so a match can no longer be satisfied by the other car's figure.
+- The Honda SoC sync's 15-minute tick no longer requires the Honda to ALREADY be the
+  selected vehicle. That was a bootstrap deadlock: the Honda is only ever selected BY that
+  automation, so a missed plug-in trigger could never be recovered. It is now gated on
+  `sensor.ohme_home_pro_status` being `charging`.
+- Explicitly reverses the 2026-09-01 decision to give the Renault no reciprocal guard. That
+  reasoning ("the Renault's sensors are the more trustworthy") was wrong: the Renault's plug
+  sensor was the stale one, and it caused the mis-approval.
+
+Validation:
+- [x] YAML parses; 27 automations, no duplicate IDs; lines 1-710 (all non-EV automations)
+      confirmed byte-identical to the previous version
+- [x] All templates evaluated against live state via `/api/template`:
+      `renault_claims=False honda_claims=True settled=True` correctly identified the Honda
+- [x] `ha core check` -> "Command completed successfully."
+- [x] Automations reloaded; all four `automation.ev_*` present and `on`
+- [x] END-TO-END LIVE PROOF: manually triggered `ev_sync_honda_state_of_charge_to_ohme` with
+      `skip_condition: false`. Full chain ran - forced refresh, freshness gate, settle gate,
+      Honda identified, `select.ohme_home_pro_vehicle` -> `Honda e:Ny1 (2023-)`, SoC written
+      as 81. Ohme then re-planned the session: slots 18:24-18:30, 01:00-01:30, 02:00-02:31,
+      target 90% by 06:00.
+- [x] `make verify` -> no drift
+- Notes:
+  - The approve path is still unproven on a real pending_approval session. The sync path is
+    now proven end to end.
+
+Rollback:
+- Restore `/homeassistant/automations.yaml.bak.1788371105`, then reload automations.
+
+Requested by:
+- Project user (reported the Honda was plugged in and not charging)
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-09-01 - Auto-approve and state-of-charge sync for the Honda e:Ny1
 
 Summary:

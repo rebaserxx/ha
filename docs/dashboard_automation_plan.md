@@ -386,3 +386,19 @@ Review focus:
 - Intelligent Octopus Go is registered to the charge point, not a vehicle
   (`provider: OHME`, `vehicle_battery_size_in_kwh: None`), so the Honda should get the same
   off-peak dispatch treatment. Confirm on a real session before relying on it.
+
+### Update 2026-09-02 - wrong-car identification fixed
+
+- The Honda automations from 2026-09-01 were never loaded until 2026-09-02; the reload had
+  been blocked. Symptom the user saw: Honda plugged in, nothing happened.
+- Separately, `ev_ohme_auto_approve_renault_charge` was found to have approved a HONDA
+  session at 17:23:11 on 2026-09-02, confirmed by automation trace. The Renault's plug
+  sensor was stale `on` for 46s after being unplugged, and the SoC-match wait passed against
+  the outgoing Renault figure before Ohme updated to the Honda's.
+- All four EV automations now use a shared "settle then decide" gate, and both SoC-match
+  waits require the Ohme vehicle select to name the expected car. See the 2026-09-02 entry
+  in `docs/change_log.md` for full evidence and rationale.
+- Proven end to end for the SYNC path on live data (Honda selected in Ohme, SoC written 81,
+  Ohme re-planned to slots 18:24-18:30 / 01:00-01:30 / 02:00-02:31, target 90% by 06:00).
+- Still unproven: the APPROVE path on a real `pending_approval` session for either car under
+  the new settle gate. Watch the next plug-in of each car.

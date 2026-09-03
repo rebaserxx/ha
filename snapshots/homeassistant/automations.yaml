@@ -720,10 +720,11 @@
     approve or resume a charge. Intelligent Octopus Go keeps control of when charging happens.
     The charger is shared with a Honda e:Ny1, which since 2026-09-01 has its own Home
     Assistant entities and its own paired automation (ev_ohme_sync_honda_state_of_charge).
-    Which car is on the cable is decided by the shared settle-then-decide gate described in
-    the actions below, NOT by an instantaneous read of the Renault's own sensors.
+    Which car is on the cable is decided by the shared claim gate described in the actions
+    below, NOT by an instantaneous read of the Renault's own sensors.
   triggers:
-    # Ohme sees the plug-in first - typically ~90s before the Renault cloud catches up.
+    # Ohme sees the plug-in first - measured 2026-09-03: Ohme reached pending_approval at
+    # 09:11:52 while the Renault did not confirm the plug until 09:15:57, 4m05s later.
     - trigger: state
       entity_id: sensor.ohme_home_pro_status
       from: unplugged
@@ -741,6 +742,13 @@
       entity_id: sensor.renault_scenic_e_tech_battery
       not_to: ["unavailable", "unknown"]
       id: soc_refreshed
+    # Retry tick. Without one, a run that aborts at the claim gate is never retried unless
+    # the Renault's battery happens to change - and a parked car's battery does not change.
+    # On 2026-09-03 that left Ohme holding a wrong 55% figure for over 3 hours. The 15-minute
+    # throttle below applies to this trigger, so it is effectively a 15-minute retry.
+    - trigger: time_pattern
+      minutes: "/5"
+      id: retry_tick
   conditions:
     # Ohme must have a car connected. state_of_charge_input is unavailable when unplugged.
     - condition: not
@@ -761,38 +769,67 @@
             {{ this.attributes.last_triggered is none
                or (now() - this.attributes.last_triggered).total_seconds() > 900 }}
   actions:
-    # SETTLE THEN DECIDE. Both cars' plug sensors lag the charger, and during a car swap
-    # they can BOTH claim the cable at once. Measured 2026-09-02: the Renault was unplugged
-    # and the Honda plugged in at ~17:23:11, but the Renault's plug sensor still read `on`
-    # until 17:23:57 (46s) while the Honda took until 17:23:43 (32s) to report. Deciding
-    # instantly on the Renault's own sensors therefore identifies the WRONG CAR for about a
-    # minute after every swap. Wait until exactly one car claims the cable before deciding.
+    # Ask the Honda to report in, so that "the Honda is not on the cable" is a FRESH
+    # conclusion rather than an assumption drawn from hours-old cloud data. Best effort
+    # only: the press raises "Unable to refresh data from vehicle" when the car is asleep
+    # or out of signal, which must not abort the Renault's run, and the claim gate below
+    # already refuses to count a stale Honda as claiming the cable.
+    - action: button.press
+      target:
+        entity_id: button.e_ny1_refresh_from_car
+      continue_on_error: true
+    - wait_template: >-
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {{ t is not none and (now() - t).total_seconds() < 300 }}
+      timeout: "00:02:00"
+      continue_on_timeout: true
+    # CLAIM GATE. Wait until exactly one car claims the cable. Both cars' sensors lag the
+    # charger badly and in opposite ways, so neither an instantaneous read nor a fixed delay
+    # is safe:
+    #   - 2026-09-02: the Renault was unplugged but its plug sensor still read `on` for 46s,
+    #     which made the Renault automation approve a Honda session.
+    #   - 2026-09-03: the Honda's cloud went unreachable at 03:26 and its plug_status froze
+    #     at `plugged_in` for 12 hours, so the Honda claimed a cable it was not on and this
+    #     gate could never resolve. Hence the freshness qualifier on the Honda's claim: data
+    #     that old is not evidence, so a stale Honda is treated as NOT claiming.
+    # The Renault has no equivalent last-updated sensor; its 46s stale window is covered by
+    # the settle delay and re-check below rather than by a freshness test.
     - wait_template: >-
         {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
                    and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
-        {% set h = states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
                    and is_state('device_tracker.e_ny1_location','home') %}
         {{ r != h }}
-      timeout: "00:03:00"
+      timeout: "00:06:00"
       continue_on_timeout: false
-    # The Renault must be the car on the end of this cable: plugged in, and at home.
-    # Without the location check, the Renault plugged in at work would make us switch
-    # Ohme to the Renault while the Honda is actually on the home charger.
-    - condition: state
-      entity_id: binary_sensor.renault_scenic_e_tech_plug
-      state: "on"
-    - condition: state
-      entity_id: device_tracker.renault_scenic_e_tech_location
-      state: home
-    # Usable reading, and only write when Ohme does not already agree.
-    # No staleness gate: a reading that looks days old is still correct when the car has
-    # been parked, and the 7-minute poll tracks a charge accurately. Age is not the failure
-    # mode here, so gating on it would block correct writes.
+    # Hold, then re-check on settled data. This is what catches a sensor that is briefly
+    # and wrongly still reporting the previous car: on 2026-09-03 the Renault's plug sensor
+    # landed at 09:15:57 and its GPS only reached `home` at 09:16:01 - four seconds later.
+    # The old instantaneous condition failed on that four-second gap and aborted the run.
+    - delay: "00:01:00"
+    - condition: template
+      value_template: >-
+        {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
+                   and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+                   and is_state('device_tracker.e_ny1_location','home') %}
+        {{ r and not h }}
+    # Usable reading, and only write when Ohme does not already agree. The vehicle check
+    # matters: Ohme's figure describes whichever car is selected, so comparing against it
+    # while the Honda is still selected compares two different cars.
+    # No staleness gate on the Renault: a reading that looks days old is still correct when
+    # the car has been parked, and the 7-minute poll tracks a charge accurately.
     - condition: template
       value_template: >-
         {% set r = states('sensor.renault_scenic_e_tech_battery') | float(-1) %}
         {% set o = states('sensor.ohme_home_pro_vehicle_battery') | float(-2) %}
-        {{ 0 <= r <= 100 and (r | round(0) | int) != (o | round(0) | int) }}
+        {{ 0 <= r <= 100 and (
+             not is_state('select.ohme_home_pro_vehicle','Renault Scenic (2023-2025)')
+             or (r | round(0) | int) != (o | round(0) | int)) }}
     # Ohme applies state-of-charge to the selected vehicle (client._cars[0]), so make sure
     # that is the Renault before writing. This is PUT /v1/car/{id}/select - it cannot start
     # a charge. The vehicle select uses the 30-minute device-info coordinator and its
@@ -832,23 +869,36 @@
     in the afternoon at 27.95p/kWh. That cost trade-off was reviewed and accepted by the
     project user. Keep charge-causing actions in THIS automation and its Honda counterpart
     only.
-    INCIDENT 2026-09-02: this automation approved a HONDA session as if it were the Renault.
-    The Renault had just been unplugged but its plug sensor still read `on`, and the
-    SoC-match wait below passed instantly because Ohme had not yet switched its own figure
-    from the Renault's 90% to the Honda's 59%. Approval landed ~2s after the session opened.
-    Both failure modes are fixed by the settle gate in the actions.
+    INCIDENT 2026-09-02: this automation approved a HONDA session as if it were the Renault,
+    because the Renault's plug sensor still read `on` 46s after it was unplugged.
+    INCIDENT 2026-09-03: the reverse - a genuine Renault session sat unapproved for over
+    3 hours, because the run triggered 4 seconds before the Renault's GPS reached `home`,
+    failed an instantaneous location check, and nothing ever retried it.
+    Both are addressed by the claim gate, the settle-and-recheck, and the retry tick below.
   triggers:
     - trigger: state
       entity_id: sensor.ohme_home_pro_status
       to: pending_approval
       id: session_pending
-    # Ohme reaches pending_approval roughly 90s before the Renault confirms the plug, so at
-    # the moment of session_pending the plug condition below is usually still false. This
-    # second trigger is what actually carries the approval through.
+    # Ohme reaches pending_approval about 4 minutes before the Renault confirms the plug,
+    # so at the moment of session_pending the car checks below are still false. This second
+    # trigger is what usually carries the approval through.
     - trigger: state
       entity_id: binary_sensor.renault_scenic_e_tech_plug
       to: "on"
       id: renault_plugged
+    # The Renault's GPS trails its plug sensor, so its arrival is a trigger too.
+    - trigger: state
+      entity_id: device_tracker.renault_scenic_e_tech_location
+      to: home
+      id: renault_home
+    # Retry tick, gated by the pending_approval condition below and therefore self-limiting:
+    # once the session is approved (or the car unplugged) the condition stops passing.
+    # Added after 2026-09-03, when every edge trigger had already fired and failed and the
+    # session simply stayed pending for the rest of the day.
+    - trigger: time_pattern
+      minutes: "/5"
+      id: retry_tick
   conditions:
     - condition: state
       entity_id: sensor.ohme_home_pro_status
@@ -862,23 +912,41 @@
           entity_id: select.ohme_home_pro_charge_mode
           state: max_charge
   actions:
-    # SETTLE THEN DECIDE - see the 2026-09-02 incident in the description. Do not approve
-    # until exactly one car claims the cable. The car-identity checks below are deliberately
-    # here rather than in `conditions:`, so they are evaluated on settled data.
+    # Best-effort Honda refresh so that "the Honda is not on the cable" is a fresh
+    # conclusion. Must not abort this run when the Honda is unreachable - see the sync
+    # automation for the reasoning.
+    - action: button.press
+      target:
+        entity_id: button.e_ny1_refresh_from_car
+      continue_on_error: true
+    - wait_template: >-
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {{ t is not none and (now() - t).total_seconds() < 300 }}
+      timeout: "00:02:00"
+      continue_on_timeout: true
+    # CLAIM GATE, then settle and re-check on stable data. The car-identity checks are
+    # deliberately here rather than in `conditions:`, so they run on settled data and so
+    # that a car whose sensors have not caught up yet is WAITED FOR rather than rejected.
     - wait_template: >-
         {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
                    and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
-        {% set h = states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
                    and is_state('device_tracker.e_ny1_location','home') %}
         {{ r != h }}
-      timeout: "00:03:00"
+      timeout: "00:06:00"
       continue_on_timeout: false
-    - condition: state
-      entity_id: binary_sensor.renault_scenic_e_tech_plug
-      state: "on"
-    - condition: state
-      entity_id: device_tracker.renault_scenic_e_tech_location
-      state: home
+    - delay: "00:01:00"
+    - condition: template
+      value_template: >-
+        {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
+                   and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+                   and is_state('device_tracker.e_ny1_location','home') %}
+        {{ r and not h }}
     # Let the state-of-charge sync land first so Ohme plans this session against the
     # Renault's real battery level rather than a stale or wrong-vehicle figure. Approve
     # anyway on timeout rather than leaving the car waiting indefinitely.
@@ -911,10 +979,10 @@
     approve or resume a charge. Intelligent Octopus Go keeps control of when charging happens.
     DIFFERENCE FROM THE RENAULT: the Renault polls every ~7 minutes, so its readings can be
     trusted as-is. The Honda's cloud data can be many hours stale - measured 6h50m old on
-    2026-09-01 while HA had just polled the integration. So this automation presses
-    button.e_ny1_refresh_from_car and waits for sensor.e_ny1_last_updated to advance before
-    trusting ANY Honda reading, and aborts rather than writing a stale figure. A forced
-    refresh returned fresh data in ~15s when measured on 2026-09-01.
+    2026-09-01, and on 2026-09-03 the car was unreachable for over 12 hours with
+    button.e_ny1_refresh_from_car raising "Unable to refresh data from vehicle". So this
+    automation forces a refresh and waits for sensor.e_ny1_last_updated to advance before
+    trusting ANY Honda reading, and aborts rather than writing a stale figure.
   triggers:
     # Ohme sees the plug-in first, before either car's cloud catches up.
     - trigger: state
@@ -931,8 +999,8 @@
       not_to: ["unavailable", "unknown"]
       id: soc_refreshed
     # The Honda does not stream updates through a charge the way the Renault does (~40 per
-    # session), so poll it while Ohme is actually delivering power. Waking the car this
-    # often is acceptable precisely because it is sitting on mains at the time.
+    # session), so poll it while Ohme holds the car. Waking it this often is acceptable
+    # precisely because it is sitting on mains at the time.
     # NOTE: this tick deliberately does NOT require the Honda to already be the selected
     # vehicle in Ohme. An earlier version did, which made it unable to bootstrap: the Honda
     # is only ever selected BY this automation, so if the plug-in triggers were missed the
@@ -947,8 +1015,10 @@
         - condition: state
           entity_id: sensor.ohme_home_pro_status
           state: ["unplugged", "unavailable", "unknown"]
-    # The periodic tick only applies while Ohme is actually charging, so the car is not
-    # woken every 15 minutes just for sitting on a finished cable.
+    # The periodic tick applies while Ohme is charging OR still waiting for approval, so the
+    # car is not woken every 15 minutes for sitting on a finished cable. pending_approval was
+    # added 2026-09-03: without it a session whose plug-in triggers all failed could never be
+    # recovered by the tick, which is exactly what happened that morning.
     - condition: or
       conditions:
         - condition: not
@@ -957,7 +1027,7 @@
               id: charge_tick
         - condition: state
           entity_id: sensor.ohme_home_pro_status
-          state: charging
+          state: ["charging", "pending_approval"]
     # Mid-charge corrections are throttled. Plug-in triggers bypass the throttle - that
     # write sets the figure Ohme plans the whole session against.
     - condition: or
@@ -971,31 +1041,41 @@
   actions:
     # Force fresh data before trusting any Honda sensor. Abort on timeout: writing a stale
     # battery figure is worse than not writing at all, because Ohme would plan against it.
+    # continue_on_error is required - the press RAISES when the car cannot be reached, and
+    # an unhandled error kills the run before the wait below can abort it cleanly.
     - action: button.press
       target:
         entity_id: button.e_ny1_refresh_from_car
+      continue_on_error: true
     - wait_template: >-
         {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
         {{ t is not none and (now() - t).total_seconds() < 300 }}
       timeout: "00:02:00"
       continue_on_timeout: false
-    # SETTLE THEN DECIDE - see the 2026-09-02 incident on the Renault approve automation.
-    # Both cars' plug sensors lag the charger and can briefly both claim the cable during a
-    # swap, so wait until exactly one of them does.
+    # CLAIM GATE, then settle and re-check - see ev_ohme_sync_renault_state_of_charge for
+    # the two incidents this shape exists to prevent. The Honda's own freshness is already
+    # guaranteed by the wait above; the qualifier is repeated here so the four automations
+    # share one identical gate.
     - wait_template: >-
         {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
                    and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
-        {% set h = states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
                    and is_state('device_tracker.e_ny1_location','home') %}
         {{ r != h }}
-      timeout: "00:03:00"
+      timeout: "00:06:00"
       continue_on_timeout: false
-    - condition: state
-      entity_id: sensor.e_ny1_plug_status
-      state: ["plugged_in", "connected"]
-    - condition: state
-      entity_id: device_tracker.e_ny1_location
-      state: home
+    - delay: "00:01:00"
+    - condition: template
+      value_template: >-
+        {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
+                   and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+                   and is_state('device_tracker.e_ny1_location','home') %}
+        {{ h and not r }}
     # Usable reading, and only write when Ohme does not already agree. The vehicle check
     # matters: Ohme's figure describes whichever car is selected, so comparing against it
     # while the Renault is still selected compares two different cars.
@@ -1045,9 +1125,9 @@
     is registered against the CHARGE POINT (provider OHME, vehicle_battery_size_in_kwh None),
     not against a specific car, so the Honda gets the same dispatch treatment the Renault
     gets and the cost trade-off the project user accepted on 2026-08-31 carries over.
-    Identification is gated on FRESH Honda data AND on the settle gate: the run forces a
-    refresh-from-car and aborts if the car does not report back, so a stale reading can never
-    approve a session. The safe failure mode is "no auto-approval, tap it in the app".
+    Identification is gated on FRESH Honda data AND on the shared claim gate: the run forces
+    a refresh-from-car and aborts if the car does not report back, so a stale reading can
+    never approve a session. The safe failure mode is "no auto-approval, tap it in the app".
   triggers:
     - trigger: state
       entity_id: sensor.ohme_home_pro_status
@@ -1060,6 +1140,16 @@
       entity_id: sensor.e_ny1_plug_status
       to: ["plugged_in", "connected"]
       id: honda_plugged
+    - trigger: state
+      entity_id: device_tracker.e_ny1_location
+      to: home
+      id: honda_home
+    # Retry tick, gated by the pending_approval condition below and therefore self-limiting.
+    # See the Renault counterpart: on 2026-09-03 every edge trigger fired once, failed, and
+    # the session then stayed pending for hours with nothing to retry it.
+    - trigger: time_pattern
+      minutes: "/5"
+      id: retry_tick
   conditions:
     - condition: state
       entity_id: sensor.ohme_home_pro_status
@@ -1073,30 +1163,39 @@
           entity_id: select.ohme_home_pro_charge_mode
           state: max_charge
   actions:
-    # Prove the Honda is really the car on the cable before approving anything.
+    # Prove the Honda is really the car on the cable before approving anything. The refresh
+    # press raises when the car is unreachable, so it is guarded; the wait below is what
+    # decides, and it aborts the run when no fresh data arrives.
     - action: button.press
       target:
         entity_id: button.e_ny1_refresh_from_car
+      continue_on_error: true
     - wait_template: >-
         {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
         {{ t is not none and (now() - t).total_seconds() < 300 }}
       timeout: "00:02:00"
       continue_on_timeout: false
-    # SETTLE THEN DECIDE - wait until exactly one car claims the cable.
+    # CLAIM GATE, then settle and re-check on stable data.
     - wait_template: >-
         {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
                    and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
-        {% set h = states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
                    and is_state('device_tracker.e_ny1_location','home') %}
         {{ r != h }}
-      timeout: "00:03:00"
+      timeout: "00:06:00"
       continue_on_timeout: false
-    - condition: state
-      entity_id: sensor.e_ny1_plug_status
-      state: ["plugged_in", "connected"]
-    - condition: state
-      entity_id: device_tracker.e_ny1_location
-      state: home
+    - delay: "00:01:00"
+    - condition: template
+      value_template: >-
+        {% set r = is_state('binary_sensor.renault_scenic_e_tech_plug','on')
+                   and is_state('device_tracker.renault_scenic_e_tech_location','home') %}
+        {% set t = states('sensor.e_ny1_last_updated') | as_datetime %}
+        {% set h = t is not none and (now() - t).total_seconds() < 1800
+                   and states('sensor.e_ny1_plug_status') in ['plugged_in','connected']
+                   and is_state('device_tracker.e_ny1_location','home') %}
+        {{ h and not r }}
     # Let the state-of-charge sync land first so Ohme plans this session against the
     # Honda's real battery level rather than a stale or wrong-vehicle figure. The vehicle
     # check is part of the match: a bare number comparison can pass against the OTHER car's

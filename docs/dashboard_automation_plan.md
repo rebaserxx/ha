@@ -381,8 +381,11 @@ Review focus:
 - `device_tracker.e_ny1_location` (GPS, `in_zones: [zone.home]`) is used for the at-home
   test. `sensor.e_ny1_home_away` disagreed with it (`away` vs `home`) at the time of
   writing and is deliberately not used. Worth understanding which is authoritative.
-- The 15-minute mid-charge refresh tick is gated on the Honda already being selected in Ohme
-  AND Ohme `charging`, so it should never wake the car during a Renault session. Confirm.
+- The 15-minute mid-charge refresh tick is gated on Ohme being `charging` or
+  `pending_approval` (widened 2026-09-03). It deliberately does NOT require the Honda to be
+  the selected vehicle - that earlier gating made it unable to bootstrap, since the Honda is
+  only ever selected by that same automation. It will therefore wake the Honda during a
+  Renault session; that is accepted as the price of being able to recover a missed plug-in.
 - Intelligent Octopus Go is registered to the charge point, not a vehicle
   (`provider: OHME`, `vehicle_battery_size_in_kwh: None`), so the Honda should get the same
   off-peak dispatch treatment. Confirm on a real session before relying on it.
@@ -402,3 +405,31 @@ Review focus:
   Ohme re-planned to slots 18:24-18:30 / 01:00-01:30 / 02:00-02:31, target 90% by 06:00).
 - Still unproven: the APPROVE path on a real `pending_approval` session for either car under
   the new settle gate. Watch the next plug-in of each car.
+
+### Update 2026-09-03 - claim-gate deadlock and never-retried session
+
+- Symptom: the Renault was plugged in (cable moved from the Honda within seconds) and the
+  session sat unapproved for over 3 hours with Ohme still showing the Honda selected at a
+  wrong 55%.
+- Three faults, all confirmed from automation traces and recorder history:
+  1. The Honda's cloud was unreachable from 03:26 (`button.e_ny1_refresh_from_car` raising
+     "Unable to refresh data from vehicle"), so `sensor.e_ny1_plug_status` stayed frozen at
+     `plugged_in` for 12 hours. The 2026-09-02 settle gate counted that as a live claim, so
+     both cars claimed the cable and the gate could never resolve.
+  2. That refresh press was unguarded, so both Honda runs died with `script_execution: error`
+     at `action/0` instead of aborting cleanly at the freshness wait.
+  3. The Renault's sensors lag the charger by about 4 minutes, and its GPS trails its own plug
+     sensor by a few more seconds. The approve run triggered on the plug sensor at 09:15:57
+     and failed a hard instantaneous location check; the GPS reached `home` at 09:16:01 -
+     four seconds too late. Nothing retried, because every trigger is edge-based.
+- Fixes: stale data no longer counts as a claim (Honda claim requires
+  `sensor.e_ny1_last_updated` under 30 minutes); identity is waited for (6-minute gate) then
+  re-checked after a 60-second settle rather than sampled instantly; the Honda refresh is
+  `continue_on_error`; both approve automations carry a `/5` retry tick.
+- Checked and ruled out: the ~4-minute lag on
+  `device_tracker.renault_scenic_e_tech_location` is NOT a tight geofence. `zone.home` has a
+  100 m radius and both cars report roughly 15 m from its centre (Renault
+  52.3073611/-0.7042492, Honda 52.3073881/-0.7042275, both `gps_accuracy: 0`,
+  `in_zones: ['zone.home']`). Widening the zone would change nothing. The lag is the Renault
+  cloud's own reporting latency - the position simply is not published until its poll lands -
+  so it has to be absorbed by waiting, which is what the 6-minute claim gate now does.

@@ -9,7 +9,7 @@ ip_address: 172.30.32.1
 machine: qemux86-64
 port: 8123
 ssl: false
-update_available: false
+update_available: true
 version: 2026.8.3
-version_latest: 2026.8.3
+version_latest: 2026.9.0
 watchdog: true

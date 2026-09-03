@@ -37,6 +37,117 @@ Implemented by:
 
 ---
 
+## 2026-09-03 - Fix EV claim gate deadlock and the never-retried pending session
+
+Summary:
+- A genuine Renault session sat in `pending_approval` from 09:11:52 until 12:30+ (over three
+  hours) with the wrong car selected in Ohme and a wrong 55% state of charge. Two independent
+  faults, both proven from traces and history, plus a third that made recovery impossible.
+- Reworked all four EV automations: the shared car-identity gate now refuses to believe stale
+  Honda data, identity is waited for rather than sampled instantaneously, the Honda refresh is
+  error-guarded, and both approve automations gained a 5-minute retry tick.
+
+Root causes (evidence):
+1. HONDA CLOUD UNREACHABLE, STALE CLAIM. `button.e_ny1_refresh_from_car` raised "Unable to
+   refresh data from vehicle"; `sensor.e_ny1_last_updated` froze at 03:26:37 and
+   `sensor.e_ny1_plug_status` at `plugged_in` from 00:35:35 - 12 hours stale. The shared
+   settle gate `(renault_claims) != (honda_claims)` read that frozen value as a live claim,
+   so with the Renault genuinely plugged BOTH cars claimed the cable and the gate could never
+   resolve. Trace `fd2457711b2d738973d5ee56197f2486` (10:46:57) shows `action/0` timing out
+   after the full 180s with `completed: false`.
+2. UNHANDLED REFRESH ERROR. The refresh press was not guarded, so both Honda automations died
+   at `action/0` instead of aborting cleanly at the freshness wait immediately after. Trace
+   `b28fa0f77ee47d4b12fd2de42f6fbc2d` (09:11:52), `script_execution: error`.
+3. RENAULT SENSORS LAG ~4 MINUTES, AND THE CHECK WAS INSTANTANEOUS. Ohme reached
+   `pending_approval` at 09:11:52; the Renault's plug sensor only reached `on` at 09:15:57
+   (4m05s later) and its GPS reached `home` at 09:16:01 - four seconds after the plug sensor.
+   The approve automation triggered on the plug sensor and failed a hard
+   `condition: state ... device_tracker ... home` by those four seconds. Trace
+   `4bc39c5568035846e8e73497d389b051`, aborted at `action/2/entity_id/0`,
+   `state: not_home, wanted_state: home`.
+4. NO RETRY. Every trigger is edge-based. After the 09:15:57 abort nothing re-ran, and the
+   Honda's 15-minute tick was gated on `charging`, so it skipped a `pending_approval` session
+   (traces at 11:45/12:00/12:15 all `failed_conditions`). The session simply stayed pending.
+
+Files changed:
+- /homeassistant/automations.yaml (all four `ev_ohme_*` automations; the other 23 automations
+  are byte-identical - verified by md5 of the first 710 lines and by a parsed-object compare)
+- snapshots/homeassistant/automations.yaml
+- CLAUDE.md, docs/homeassistant_configuration_reference.md, docs/dashboard_automation_plan.md
+
+Details (old behavior -> new behavior):
+- Claim gate: a car's claim now requires evidence we can believe. The Honda's claim is
+  qualified by `sensor.e_ny1_last_updated` being under 30 minutes old; stale Honda data means
+  the Honda is NOT claiming the cable, rather than claiming it forever. The Renault has no
+  equivalent last-updated sensor, so its 46s stale window (the 2026-09-02 incident) is covered
+  by the settle-and-recheck below instead.
+- Identity checks: the hard `condition: state` plug/location pairs are replaced by a single
+  template that is first WAITED for (6-minute timeout, up from 3, to cover the measured 4-minute
+  Renault lag), then re-checked after a 60-second settle delay. A car whose sensors have not
+  caught up is now waited for instead of rejected; a car whose sensors are briefly wrong is
+  caught by the re-check. The re-check also enforces mutual exclusion directly
+  (`r and not h` / `h and not r`).
+- Honda refresh press: `continue_on_error: true` on all four automations. The Honda paths still
+  abort at the freshness wait (`continue_on_timeout: false`) so a stale figure can never be
+  written or approved. The Renault paths now also press the Honda refresh, best effort with
+  `continue_on_timeout: true`, so "the Honda is not on the cable" is a fresh conclusion.
+- Retry: both approve automations gained a `/5` `time_pattern` trigger, self-limiting because
+  the existing `pending_approval` condition stops passing once approved or unplugged. The
+  Renault sync gained a `/5` tick, throttled to an effective 15 minutes by its existing
+  `last_triggered` guard. The Honda sync's `/15` tick condition widened from `charging` to
+  `["charging", "pending_approval"]`.
+- Renault SoC write condition made symmetric with the Honda's: it now also checks that the
+  Renault is the selected vehicle, so it cannot skip a write because Ohme's figure for the
+  OTHER car happens to match.
+- Charge-causing actions remain confined to the two approve automations. No new
+  charge-causing action was added; the sync automations still touch only
+  `select.select_option` and the state-of-charge number.
+
+Validation:
+- [x] `ha core check` - "Command completed successfully."
+- [x] `automation/reload` - HTTP 200
+- [x] Local YAML parse: 27 automations, unique ids, 23 non-EV automations compare equal
+- [x] Live approve observed end-to-end - FIRST TIME EVER for the approve path. Trace
+      `7daad5b9ae7e812b04c5b8b5c377ab79`, `script_execution: finished`, and every one of the
+      four fixes is visible in it:
+        12:30:00  trigger/3 - the new `/5` retry tick fires (the session had been stranded
+                  since 09:11:52, so no other trigger would ever have run again)
+        12:30:00  action/0 - Honda refresh press; took 16s and did NOT kill the run.
+                  The same press produced `script_execution: error` at 09:11:52.
+        12:30:16  action/1 - Honda freshness wait times out (`completed: False`), and
+                  `continue_on_timeout: true` lets the Renault run carry on regardless
+        12:32:16  action/2 - CLAIM GATE passes instantly (`remaining: 360.0,
+                  completed: True`) because the 12-hour-stale Honda no longer counts as
+                  claiming the cable. The same gate timed out at 180s at 10:46:57.
+        12:33:16  action/4 - re-check on settled data passes. This is the step whose
+                  instantaneous ancestor failed by four seconds at 09:15:57.
+        12:34:01  action/5 - SoC-match wait completes after ~45s, having waited for the sync
+                  automation to select the Renault and write 80
+        12:34:01  action/7 - button.ohme_home_pro_approve_charge PRESSED
+- [x] Retry tick confirmed self-limiting: the next tick at 12:35:00 ran and stopped at
+      `condition/0` (`state: plugged_in, wanted_state: pending_approval`).
+- Observed side: Ohme went Honda@55 -> Renault selected 12:33:42 -> SoC 80 at 12:34:09 ->
+  out of `pending_approval` at 12:34:23 -> `charging` at 12:35:45. 80 matches the Renault's
+  actual battery. Delivery began immediately rather than waiting for an off-peak slot, which
+  is the documented and accepted trade-off of auto-approval (see the 2026-08-31 entry).
+- Also checked and ruled out: the ~4-minute Renault GPS lag is not a tight geofence.
+  `zone.home` radius is 100 m and both cars report ~15 m from its centre with
+  `gps_accuracy: 0`. The lag is Renault cloud reporting latency and must be waited out.
+
+Rollback:
+- `cp /homeassistant/automations.yaml.bak.1788438272 /homeassistant/automations.yaml`
+  then `ha core check` and reload automations. That backup is the 2026-09-02 settle-gate
+  version, which deadlocks whenever the Honda cloud is unreachable.
+
+Requested by:
+- Project user ("I have now plugged in my renault, moved the plug from one car within a few
+  seconds. It is not approved and no car swap")
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-09-02 - Fix wrong-car identification on the shared Ohme charger
 
 Summary:

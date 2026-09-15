@@ -23,8 +23,12 @@ homeassistant:
       friendly_name: Lounge Lights
     light.main_bedroom:
       friendly_name: Main Bedroom Lights
+    # Room rename 2026-09-15: Ren moved out; Nathaniel took the first-floor room and the attic
+    # room became a spare "Attic Bedroom". Entity ids are historical and deliberately unchanged:
+    # *ren_s_bedroom* entities are Nathaniel's Bedroom; *nathaniels_bedroom* / *nathaniel_meacocool*
+    # entities are the Attic Bedroom. Area ids were migrated (nathaniel_s_bedroom, attic_bedroom).
     light.ren_s_bedroom:
-      friendly_name: Ren's Bedroom Lights
+      friendly_name: Nathaniel's Bedroom Lights
     light.sarahs_office:
       friendly_name: Sarah's Office Lights
     light.side_hall:
@@ -48,9 +52,9 @@ homeassistant:
     climate.main_bedroom:
       friendly_name: Main Bedroom Heating
     climate.nathaniels_bedroom:
-      friendly_name: Nathaniel's Bedroom Heating
+      friendly_name: Attic Bedroom Heating
     climate.ren_s_bedroom:
-      friendly_name: Ren's Bedroom Heating
+      friendly_name: Nathaniel's Bedroom Heating
     climate.sarahs_office:
       friendly_name: Sarah's Office Heating
     climate.toilet:
@@ -58,13 +62,13 @@ homeassistant:
 
     # HomeKit air-conditioning controls. Expose these only via the AC bridge.
     climate.nathaniel_meacocool_mc_series_12000_pro:
-      friendly_name: Nathaniel's Bedroom AC
+      friendly_name: Attic Bedroom AC
     climate.meacocool_mc_series_12000_pro_2:
-      friendly_name: Ren's Bedroom AC
+      friendly_name: Nathaniel's Bedroom AC
 
     # HomeKit kitchen electric heating control. Expose this only via its own bridge.
     climate.ecostrad_klasse_iq:
-      friendly_name: Kitchen Ecostrad Heater
+      friendly_name: Kitchen Heating   # renamed from "Kitchen Ecostrad Heater" 2026-09-15 to match the Room Heating pattern
 
 cloud:
   alexa:
@@ -94,83 +98,15 @@ cloud:
         - climate.ren_s_bedroom
         - climate.sarahs_office
         - climate.toilet
-        - water_heater.hot_water
-    entity_config:
-      light.attic_lounge:
-        name: Attic Lounge Lights
-        description: Room lighting
-      light.davids_office:
-        name: David's Office Lights
-        description: Room lighting
-      light.dining_room:
-        name: Dining Room Lights
-        description: Room lighting
-      light.front_porch:
-        name: Front Porch Lights
-        description: Room lighting
-      light.guest_bedroom:
-        name: Guest Bedroom Lights
-        description: Room lighting
-      light.hallway:
-        name: Hallway Lights
-        description: Room lighting
-      light.landing:
-        name: Landing Lights
-        description: Room lighting
-      light.lounge:
-        name: Lounge Lights
-        description: Room lighting
-      light.main_bedroom:
-        name: Main Bedroom Lights
-        description: Room lighting
-      light.ren_s_bedroom:
-        name: Ren's Bedroom Lights
-        description: Room lighting
-      light.sarahs_office:
-        name: Sarah's Office Lights
-        description: Room lighting
-      light.side_hall:
-        name: Side Hall Lights
-        description: Room lighting
-      climate.attic_lounge:
-        name: Attic Lounge Heating
-        description: Room heating
-      climate.davids_office:
-        name: David's Office Heating
-        description: Room heating
-      climate.dining_room:
-        name: Dining Room Heating
-        description: Room heating
-      climate.guest_bedroom:
-        name: Guest Bedroom Heating
-        description: Room heating
-      climate.hallway:
-        name: Hallway Heating
-        description: Room heating
-      climate.landing:
-        name: Landing Heating
-        description: Room heating
-      climate.lounge:
-        name: Lounge Heating
-        description: Room heating
-      climate.main_bedroom:
-        name: Main Bedroom Heating
-        description: Room heating
-      climate.nathaniels_bedroom:
-        name: Nathaniel's Bedroom Heating
-        description: Room heating
-      climate.ren_s_bedroom:
-        name: Ren's Bedroom Heating
-        description: Room heating
-      climate.sarahs_office:
-        name: Sarah's Office Heating
-        description: Room heating
-      climate.toilet:
-        name: Toilet Heating
-        description: Room heating
-      water_heater.hot_water:
-        name: Hot Water
-        description: Tado hot water
+        - water_heater.hot_water   # to be removed once input_boolean.hot_water_boost has proven itself (audit Phase 3)
+        # Phase 3V (2026-09-15): these replace the Tuya/SmartLife skill, which is unlinked from Alexa.
+        - climate.ecostrad_klasse_iq                       # Kitchen Heating
+        - climate.nathaniel_meacocool_mc_series_12000_pro  # Attic Bedroom AC
+        - climate.meacocool_mc_series_12000_pro_2          # Nathaniel's Bedroom AC
+        - sensor.left_oven_current_oven_cavity_temperature   # oven temperature by voice
+        - sensor.right_oven_current_oven_cavity_temperature
+        - input_boolean.hot_water_boost
+        - input_boolean.goodnight
 
 recorder:
   purge_keep_days: 21
@@ -182,6 +118,18 @@ recorder:
       - sensor.*_signal_strength
       - sensor.*_last_seen
       - sensor.*_uptime
+      # Audit 2026-09-15: high-churn, never-queried history.
+      - device_tracker.unifi_default_*
+      - sensor.davids_iphone_*
+      - sensor.ipad_*
+      - event.dimmer_*
+    entities:
+      - sensor.sun_next_dawn
+      - sensor.sun_next_dusk
+      - sensor.sun_next_midnight
+      - sensor.sun_next_noon
+      - sensor.sun_next_rising
+      - sensor.sun_next_setting
 
 homekit:
   - name: HA Lights
@@ -201,6 +149,10 @@ homekit:
         - light.ren_s_bedroom
         - light.sarahs_office
         - light.side_hall
+        # Virtual switches (audit Phase 3). HomeKit shows input_boolean as a switch.
+        - input_boolean.hot_water_boost
+        - input_boolean.goodnight
+        - input_boolean.lighting_automations_paused
   - name: HA Climate
     port: 21065
     filter:
@@ -229,10 +181,6 @@ homekit:
     filter:
       include_entities:
         - climate.ecostrad_klasse_iq
-
-# Load frontend themes from the themes folder
-frontend:
-  themes: !include_dir_merge_named themes
 
 lovelace:
   dashboards:
@@ -421,7 +369,25 @@ input_datetime:
     has_date: true
     has_time: false
 
+# Virtual devices exposed to the voice assistants (audit Phase 3, 2026-09-15).
+#   hot_water_boost              - on = 60 min Tado hot water timer; mirrored from Tado overlay state
+#   goodnight                    - momentary: turns off common areas, Lounge, porch, office filament
+#   lighting_automations_paused  - checked by every scheduled lighting automation (HomeKit/Assist only)
+input_boolean:
+  hot_water_boost:
+    name: Hot Water Boost
+    icon: mdi:water-boiler
+  goodnight:
+    name: Goodnight
+    icon: mdi:weather-night
+  lighting_automations_paused:
+    name: Lighting Automations Paused
+    icon: mdi:pause-circle
+
 timer:
   hot_water_pump_runtime:
     name: Hot Water Pump Runtime
     duration: "01:00:00"
+    # Survive restarts: without this a restart mid-run drops the timer and the
+    # pump is never turned off by hot_water_pump_off_when_runtime_finishes.
+    restore: true

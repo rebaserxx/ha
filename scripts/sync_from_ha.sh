@@ -18,6 +18,7 @@ FILES=(
   "dashboards/home_health.yaml"
   "dashboards/utilities.yaml"
   "scripts/tado_meter_reading.py"
+  "tuya_quirks/qn_lgibckbiszegmjlo.py"
 )
 
 usage() {

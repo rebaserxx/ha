@@ -1,6 +1,6 @@
 # Reusable Lighting Components
 
-Last verified against live Home Assistant config on 2026-05-24.
+Last verified against live Home Assistant config on 2026-09-15 (audit Phase 4).
 
 ## Goal
 Provide reusable lighting scripts that can be called from automations without repeating area targets and profile logic.
@@ -14,39 +14,43 @@ Provide reusable lighting scripts that can be called from automations without re
 Important:
 - Automation YAML entries should include `id`.
 - Script entries in `scripts.yaml` must not include `id` (Home Assistant rejects it).
+- Numbers (brightness, colour temperature) live ONLY in the profile table of the core script.
+  Automations pass a profile name and call a wrapper; they never contain brightness values.
+- Every scheduled lighting automation checks `input_boolean.lighting_automations_paused` (added
+  2026-09-15). The front porch motion automation and the Goodnight switch deliberately do not.
 
 ### 1) Core Script
 - Entity: `script.lighting_apply_profile_core`
-- Purpose: Generic reusable light action engine.
+- Purpose: generic reusable light engine.
 - Mode: `restart`
 - Inputs:
   - `target_areas` (list of HA `area_id` values)
-  - `profile` (`day`, `evening`, `night`)
+  - `profile` (`day`, `morning`, `evening_full`, `evening`, `late`, `night`)
   - `action` (`on`, `off`)
   - `transition` (seconds)
 
 Behavior:
-- If `action: off` -> `light.turn_off` for each target area.
-- If `action: on` -> `light.turn_on` using profile defaults.
+- If `action: off` -> one `light.turn_off` for all target areas.
+- If `action: on` -> one `light.turn_on` for all target areas using the profile table.
 
 ### 2) Wrapper Scripts
-- `script.lighting_common_areas`
-- `script.lighting_bedrooms`
-- `script.lighting_outside`
+- `script.lighting_common_areas` - common areas without Lounge
+- `script.lighting_evening_set` - common areas plus Lounge (the evening set; added 2026-09-15)
+- `script.lighting_bedrooms` - never called by a schedule; kept for voice/scene use
+- `script.lighting_outside` - front porch
 
 All wrappers call `script.lighting_apply_profile_core` and only differ by fixed `target_areas`.
 
-### 3) Seasonal Offset Helper
-- `script.lighting_wait_seasonal_offset`
-- Purpose: reusable seasonal offset logic for sunrise/sunset automations.
-- Inputs:
-  - `offset_direction`:
-    - `plus`: add time after event (morning)
-    - `minus`: subtract time before event via an anchor trigger (evening)
-  - `anchor_minutes` (used for `minus`; current sunset anchor is 60)
-  - `summer_minutes` (Jun-Aug)
-  - `shoulder_minutes` (Mar-May, Sep-Nov)
-  - `winter_minutes` (Dec-Feb)
+### 3) Dim-If-On Script
+- `script.lighting_dim_if_on` (added 2026-09-15)
+- Inputs: `target_areas` (list), `extra_entities` (list), `profile` (`evening` or `late`), `transition`.
+- Applies the profile only to lights in those areas that are already on. Never turns anything on.
+- Used by the 19:00 dim and the late-evening dim.
+
+### 4) Retired: Seasonal Offset Helper
+- `script.lighting_wait_seasonal_offset` is no longer called by anything. Dusk and dawn
+  automations trigger on sun elevation instead (see below). Kept until 2026-09-22 as a rollback
+  aid, then delete it.
 
 ## Area Membership (Current)
 
@@ -58,10 +62,13 @@ All wrappers call `script.lighting_apply_profile_core` and only differ by fixed 
 - `landing` (Landing)
 - `side_hall` (Side Hall)
 
+### Evening Set (`script.lighting_evening_set`)
+- the common areas above plus `living_room` (Lounge)
+
 ### Bedrooms (`script.lighting_bedrooms`)
 - `bedroom` (Main Bedroom)
-- `ren_s_bedroom` (Ren's Bedroom)
-- `nathaniel_s_bedroom` (Nathaniel's Bedroom)
+- `nathaniel_s_bedroom` (Nathaniel's Bedroom, first floor; formerly Ren's Bedroom, area migrated 2026-09-15)
+- `attic_bedroom` (Attic Bedroom; formerly Nathaniel's Bedroom)
 
 Excluded by design:
 - `guest_bedroom`
@@ -69,139 +76,67 @@ Excluded by design:
 ### Outside (`script.lighting_outside`)
 - `front_porch` (Front Porch)
 
-## Profile Defaults (Current)
-- `day`: `brightness_pct: 100`, `color_temp_kelvin: 4000`
-- `evening`: `brightness_pct: 80`, `color_temp_kelvin: 2700`
-- `night`: `brightness_pct: 10`, `color_temp_kelvin: 2000`
+## Profile Table (Current)
+| profile | brightness_pct | color_temp_kelvin | used by |
+|---|---|---|---|
+| `day` | 100 | 4000 | (manual) |
+| `morning` | 80 | 4000 | pre-sunrise on (common areas, porch) |
+| `evening_full` | 100 | 2700 | dusk on before 19:00, porch at sunset |
+| `evening` | 80 | 2700 | dusk on after 19:00, 19:00 dim |
+| `late` | 15 | 2700 | late-evening dim |
+| `night` | 10 | 2000 | (manual / bedrooms) |
 
-## Automations (Current)
+## Sun Elevation Thresholds
+- Dusk on: `sun.sun` elevation `below: 4` with `rising: false`. At 52.3 N this is roughly
+  15 minutes before sunset in June, 30 at the equinoxes and 35 in December - the same shape the
+  old seasonal table approximated, without any delay that a restart could lose.
+- Dawn off: elevation `above: 5` with `rising: true`.
+- Tune the two numbers in the automations if the family notices lights coming on too early/late.
+- Note: HA's sunrise/sunset events fire at elevation -0.833 (refraction), so "N minutes before
+  sunset" is a positive elevation.
 
-### Sunset Common Areas On (Seasonal)
-- ID: `lighting_common_evening_sunset_on_seasonal`
-- Trigger: sunset anchor at `-01:00:00`
-- Action: turn on combined evening targets at full brightness:
-  - Area targets: common areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`) plus Lounge (`living_room`)
-  - Explicit entity: `light.office_filament` (David's Office filament)
-  - Settings: `brightness_pct: 100`, `color_temp_kelvin: 2700`, `transition: 3`
-- Seasonal pre-sunset offsets are applied by `script.lighting_wait_seasonal_offset` with `offset_direction: minus`:
-  - Summer (Jun-Aug): 15 minutes before sunset
-  - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes before sunset
-  - Winter (Dec-Feb): 45 minutes before sunset
-- Offsets are centralized in script defaults; automation passes direction only.
+## Automations (Current, 12)
 
-### 02:00 Overnight Shutdown
-- ID: `lighting_overnight_shutdown_0200`
-- Trigger: `02:00:00`
-- Actions:
-  - call `script.lighting_common_areas` with `action: off`
-  - turn off `light.office_filament`
-  - call `script.lighting_outside` with `action: off`
+| id | trigger | condition | action |
+|---|---|---|---|
+| `lighting_evening_set_on_at_dusk` | elevation below 4 | not paused, not rising | evening set on: `evening_full` before 19:00, `evening` after; office filament 100%/80% |
+| `lighting_evening_dim_1900` | 19:00 | not paused | `lighting_dim_if_on` evening on evening set + porch + office filament |
+| `lighting_evening_set_dim_late` | 22:15 (Sun-Thu) / 23:30 (Fri-Sat) via trigger ids | not paused, weekday matches trigger | `lighting_dim_if_on` late on evening set |
+| `lighting_evening_set_off_late` | 23:00 (Sun-Thu) / 23:59 (Fri-Sat) | not paused, weekday matches trigger | evening set off, office filament off |
+| `lighting_overnight_shutdown_0200` | 02:00 | not paused | evening set off, outside off, office filament off |
+| `lighting_common_morning_presunrise` | 06:20 (Mon-Thu) / 06:50 (Fri) | not paused, before sunrise, weekday matches trigger | common areas on `morning` |
+| `lighting_common_off_after_sunrise` | elevation above 5 | not paused, rising | evening set off, outside off |
+| `lighting_front_porch_on_at_sunset` | sunset | not paused | outside on `evening_full` |
+| `lighting_front_porch_off_2300` | 23:00 | not paused | outside off |
+| `lighting_front_porch_on_0620_presunrise` | 06:20 | not paused, before sunrise | outside on `morning` |
+| `lighting_front_porch_off_at_sunrise` | sunrise | not paused | outside off |
+| `lighting_front_porch_motion_overnight` | `binary_sensor.hue_outdoor_motion_sensor_1_motion` on | 23:00-06:20 | porch 50% 2000 K, off 3 min after motion clears (20 min timeout) unless the 06:20 schedule has taken over |
 
-Bedroom lights are intentionally not forced off.
-Lounge is not in `script.lighting_common_areas`; it is separately targeted only by the sunset-on automation.
+Bedroom lights are never touched by a schedule. Lounge is part of the evening set, not the
+common-areas wrapper, so the pre-sunrise morning automation leaves it off.
 
-### Weekday Pre-Sunrise On (Split Times)
-- IDs:
-  - `lighting_common_weekday_morning_0620_presunrise`
-  - `lighting_common_friday_morning_0650_presunrise`
-- Behavior:
-  - Monday-Thursday at `06:20`: turn on common areas before sunrise
-  - Friday at `06:50`: turn on common areas before sunrise
-- Conditions:
-  - day-specific weekday condition (`Mon-Thu` or `Fri`, depending on automation)
-  - time is before sunrise
-- Action:
-  - turn on common areas (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
-  - settings: `brightness_pct: 80`, `color_temp_kelvin: 4000`, `transition: 2`
-
-### Evening Dim To 80% At 19:00
-- ID: `lighting_evening_dim_1900`
-- Trigger: `19:00:00` (daily)
-- Action:
-  - build a list of currently-on light entities in evening target areas:
-    - common set + Lounge + Front Porch
-    - plus `light.office_filament`
-  - apply: `brightness_pct: 80`, `color_temp_kelvin: 2700`, `transition: 3`
-- Guard:
-  - only runs `light.turn_on` when at least one target light is already on
-  - does not turn on lights that are currently off
-
-### Daily Seasonal Post-Sunrise Off
-- ID: `lighting_all_lights_off_after_sunrise_seasonal`
-- Trigger: sunrise
-- Condition:
-  - none (runs every day)
-- Action:
-  - seasonal delay via `script.lighting_wait_seasonal_offset` with `offset_direction: plus`:
-    - Summer (Jun-Aug): 15 minutes
-    - Spring/Autumn (Mar-May, Sep-Nov): 30 minutes
-    - Winter (Dec-Feb): 45 minutes
-  - call `light.turn_off` targeting common/outdoor areas only with `transition: 2`:
-    - `attic_lounge`
-    - `dining_room`
-    - `kitchen`
-    - `hallway`
-    - `landing`
-    - `side_hall`
-    - `living_room`
-    - `front_porch`
-- Offsets are centralized in script defaults; automation passes direction only.
-- Mode: `restart` (manual re-runs replace any in-progress delayed run).
-Bedroom and task lights are intentionally not forced off by this sunrise automation.
-
-### Late Evening Common + Lounge Dim (Week Split)
-- IDs:
-  - `lighting_common_lounge_dim_2215_sun_thu`
-  - `lighting_common_lounge_dim_2330_fri_sat`
-- Behavior:
-  - Sunday-Thursday at `22:15`: set common areas + Lounge to `brightness_pct: 15`
-  - Friday-Saturday at `23:30`: set common areas + Lounge to `brightness_pct: 15`
-- Target areas:
-  - common set (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
-  - plus Lounge (`living_room`)
-
-### Late Evening Common + Lounge Off (Week Split)
-- IDs:
-  - `lighting_common_lounge_off_2300_sun_thu`
-  - `lighting_common_lounge_off_2359_fri_sat`
-- Behavior:
-  - Sunday-Thursday at `23:00`: turn off common areas + Lounge + `light.office_filament`
-  - Friday-Saturday at `23:59`: turn off common areas + Lounge + `light.office_filament`
-- Target areas:
-  - common set (`attic_lounge`, `dining_room`, `kitchen`, `hallway`, `landing`, `side_hall`)
-  - plus Lounge (`living_room`)
-
-### Front Porch Evening/Night Schedule
-- IDs:
-  - `lighting_front_porch_on_at_sunset`
-  - `lighting_front_porch_off_2300`
-- Behavior:
-  - At sunset: turn on front porch lights at `brightness_pct: 100`, `color_temp_kelvin: 2700`
-  - At `23:00`: turn off front porch lights
-
-### Front Porch Early Morning Schedule
-- IDs:
-  - `lighting_front_porch_on_0620_presunrise`
-  - `lighting_front_porch_off_at_sunrise`
-- Behavior:
-  - At `06:20`: turn on front porch lights only if before sunrise at `brightness_pct: 80`, `color_temp_kelvin: 4000`
-  - At sunrise: turn off front porch lights
+Removed on 2026-09-15 (replaced by the table above): `lighting_common_evening_sunset_on_seasonal`,
+`lighting_common_weekday_morning_0620_presunrise`, `lighting_common_friday_morning_0650_presunrise`,
+`lighting_all_lights_off_after_sunrise_seasonal`, `lighting_common_lounge_dim_2215_sun_thu`,
+`lighting_common_lounge_dim_2330_fri_sat`, `lighting_common_lounge_off_2300_sun_thu`,
+`lighting_common_lounge_off_2359_fri_sat`.
 
 ## Change Guide
 
 ### Common changes and exact edit points
-- Change profile defaults -> `/config/scripts.yaml` under `lighting_apply_profile_core`.
-- Add/remove areas from a set -> wrapper script section in `/config/scripts.yaml`.
-- Change timing -> target automation in `/config/automations.yaml`.
-- Add additional schedule -> add new automation that calls existing wrappers.
+- Change a brightness or colour temperature -> the profile table in `lighting_apply_profile_core` (`/config/scripts.yaml`).
+- Add/remove areas from a set -> the wrapper script in `/config/scripts.yaml`.
+- Change a clock time or an elevation threshold -> the automation in `/config/automations.yaml`.
+- Add a schedule -> a new automation that calls a wrapper with a profile name and carries the paused condition.
 
-### Example requests to Codex
-- "Update `lighting_common_evening_sunset_on_seasonal` seasonal delays."
-- "Add `attic_lounge` to common areas wrapper."
-- "Make `night` profile 5% brightness at 1800K."
+### Example requests
+- "Make `late` 10% instead of 15%."
+- "Add `garage` to the common areas wrapper."
+- "Move the late dim to 22:30 on weeknights."
 
 ## Validation Checklist After Changes
 1. Run `ha core check`.
 2. Reload scripts and automations (or restart core).
-3. Manually run affected automation actions from UI.
-4. Confirm target areas only, especially bedroom exclusions.
+3. Run the affected wrapper from Developer Tools with an explicit `profile` and `action` and confirm the targets.
+4. Confirm bedroom exclusions.
+5. `make verify` and a change-log entry.

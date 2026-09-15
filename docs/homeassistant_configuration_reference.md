@@ -11,15 +11,15 @@ Last verified on 2026-07-12.
 `/config/configuration.yaml` currently includes:
 - `default_config:`
 - `homeassistant.customize:` for canonical HomeKit-exported room names
-- `cloud.alexa:` for the explicit Home Assistant Cloud Alexa exposure list
-- `recorder:` for bounded history retention and high-churn diagnostic sensor exclusions
+- `cloud.alexa:` for the explicit Home Assistant Cloud Alexa exposure list (include list only since 2026-09-15; names come from `customize`)
+- `recorder:` for bounded history retention and high-churn exclusions (diagnostic sensor globs, unnamed UniFi trackers, iPhone/iPad companion sensors, Hue dimmer events, sun timestamp sensors)
 - `homekit:` for the active production HomeKit bridges (`HA Lights`, `HA Climate`)
 - `lovelace:` for the tracked YAML appliance dashboard (`Appliances`)
-- `frontend` themes from `themes/` via `!include_dir_merge_named`
 - `automation: !include automations.yaml`
 - `script: !include scripts.yaml`
 - `scene: !include scenes.yaml`
 - `input_number:` (`tado_gas_meter_baseline_m3`, `tado_gas_meter_last_submitted_m3`)
+- `input_boolean:` (`hot_water_boost`, `goodnight`, `lighting_automations_paused` - voice-facing virtual switches, added 2026-09-15)
 - `sql:` (`sensor.octopus_gas_statistics_total` - cumulative gas total from backfilled Octopus statistics)
 - `template:` sensors (Tado gas derived register, Home Connect appliance labels)
 - `input_datetime:` (`tado_gas_meter_last_submission_date`)
@@ -49,6 +49,30 @@ Last verified on 2026-07-12.
 - `/config/configuration.yaml`
   - Also defines the hot water pump runtime timer helper.
 
+## Disabled Entities Of Note
+- `sensor.e_ny1_climate_temperature` (My Honda+) disabled 2026-09-15: enum sensor receiving numeric
+  values, raised an error on every coordinator update. Re-enable only after an upstream fix.
+- `media_player.s95qr` (stale Cast duplicate of `media_player.lg_speaker_s95qr_0793`) and
+  `media_player.lg_webos_tv` (Cast duplicate of the webOS `media_player.lounge_tv`) disabled 2026-09-15.
+- Meross `light.*_dnd` (4) and `switch.*_config_overtemp_enable` (4) disabled 2026-09-15: plug LED
+  and firmware options that would otherwise look like lights/switches to voice assistants.
+
+## Google Home Exposure Reference
+- Managed in the entity registry / Settings > Voice assistants > Expose, NOT in YAML: on HA 2026.9 a
+  `cloud: google_assistant:` block is rejected and stops the cloud integration loading (seen 2026-09-15).
+- Exposed set (31, 2026-09-15): the 12 room light groups, all 15 climate entities (12 Tado, Kitchen
+  Heating, both Meaco ACs), both oven cavity temperatures, `input_boolean.hot_water_boost`,
+  `input_boolean.goodnight`. Aliases come from the entity registry. Rooms come from HA areas.
+
+## Assist (Conversation) Exposure Policy
+- Tier 1 (all assistants): the 12 room light groups + Elgato, 15 climate entities, hot water.
+- Tier 2 (Assist/HomeKit admin): `switch.hot_water_pump`.
+- Also exposed to Assist only: Tado room temperature/humidity/window sensors, the two Hue motion
+  sensors, the standard Hue room scenes, the four live media players, the shopping list, and the
+  eight appliance status template sensors (with aliases such as "dishwasher", "dryer", "left oven").
+- Never exposed: individual bulbs, child locks, appliance power/programme switches, EV controls,
+  Meross plugs, diagnostics. Trimmed 192 -> 117 on 2026-09-15.
+
 ## Custom Integrations Installed (Live Server)
 Verified on 2026-09-01 from `/homeassistant/custom_components`:
 - `hacs`
@@ -59,6 +83,16 @@ Verified on 2026-09-01 from `/homeassistant/custom_components`:
 
 Operational note:
 - Custom integrations are expected and currently in use; startup warnings about "not tested by Home Assistant" are normal for these components.
+
+## Tuya Local Quirks
+- `/config/tuya_quirks/qn_lgibckbiszegmjlo.py` (Ecostrad Klasse iQ kitchen heater), added 2026-09-15,
+  tracked at `snapshots/homeassistant/tuya_quirks/` and covered by `make verify`.
+- Removes the `mode` datapoint: Tuya's spec mis-declares it and the cloud API refuses mode writes,
+  which made `climate.ecostrad_klasse_iq` report `unknown` whenever on. HA now derives off/heat from
+  the switch datapoint. The heater must be left in COMFORT mode via the Tuya/Smart Life app.
+- Quirks reload with the Tuya integration (no restart). Reload the HA Kitchen Heating HomeKit bridge
+  after changing the climate entity's features.
+- The two MeacoCool AC units (`wuqmedatpig5n1cb`, category `kt`) need no quirk; their spec is consistent.
 
 ## Repairs Snapshot (Live Server)
 Verified on 2026-02-22 from `/homeassistant/.storage/repairs.issue_registry`:
@@ -83,50 +117,42 @@ Backup status verified on 2026-05-27:
   - `/homeassistant/configuration.yaml.bak.1779906578`
   - `/homeassistant/configuration.yaml.bak.1779908696`
 - Old ad-hoc `.bak.*` files were cleaned on 2026-05-27 after confirming available HA backups.
+- 2026-09-15 (audit Phase 1): HA backup slug `666a6dd7` (`pre_phase1_20260915`), plus
+  `configuration.yaml.bak.1789479665` and `automations.yaml.bak.1789479665`. Ad-hoc `.bak.*`
+  files from 2026-05 through 2026-09-03 are still on the server awaiting explicit cleanup.
+- HTTP settings (`ip_ban_enabled`, `login_attempts_threshold`) are storage-managed in
+  `.storage/http` on this HA version; a YAML `http:` block is ignored and raises a repair.
 
 Policy reference:
 - See `docs/codex_change_playbook.md` backup lifecycle policy for retention and cleanup.
 
 ## Current Automation Inventory
-Verified on 2026-09-01 from `/config/automations.yaml` (27 automations):
-- `lighting_common_evening_sunset_on_seasonal`
-- `lighting_overnight_shutdown_0200`
-- `lighting_common_weekday_morning_0620_presunrise`
-- `lighting_common_friday_morning_0650_presunrise`
-- `lighting_evening_dim_1900`
-- `lighting_all_lights_off_after_sunrise_seasonal`
-- `lighting_common_lounge_dim_2215_sun_thu`
-- `lighting_common_lounge_dim_2330_fri_sat`
-- `lighting_common_lounge_off_2300_sun_thu`
-- `lighting_common_lounge_off_2359_fri_sat`
-- `lighting_front_porch_on_at_sunset`
-- `lighting_front_porch_off_2300`
-- `lighting_front_porch_on_0620_presunrise`
-- `lighting_front_porch_off_at_sunrise`
-- `lighting_front_porch_motion_overnight`
-- `hot_water_pump_follow_tado_on_for_1h`
-- `hot_water_pump_off_when_runtime_finishes`
-- `hot_water_pump_manual_auto_off_30m`
-- `tado_gas_meter_reading_weekly_from_octopus`
-- `tado_gas_meter_submission_overdue_alert`
-- `octopus_energy_gas_rollover_health_daily_check`
-- `system_backup_stale_daily_check`
-- `system_watchman_daily_check`
-- `ev_ohme_sync_renault_state_of_charge`
-- `ev_ohme_auto_approve_renault_charge`
-- `ev_ohme_sync_honda_state_of_charge`
-- `ev_ohme_auto_approve_honda_charge`
+Verified on 2026-09-15 from `/config/automations.yaml` (28 automations):
+- Lighting (12, see `docs/lighting_reusable_components.md`): `lighting_evening_set_on_at_dusk`,
+  `lighting_evening_dim_1900`, `lighting_evening_set_dim_late`, `lighting_evening_set_off_late`,
+  `lighting_overnight_shutdown_0200`, `lighting_common_morning_presunrise`,
+  `lighting_common_off_after_sunrise`, `lighting_front_porch_on_at_sunset`,
+  `lighting_front_porch_off_2300`, `lighting_front_porch_on_0620_presunrise`,
+  `lighting_front_porch_off_at_sunrise`, `lighting_front_porch_motion_overnight`
+- Hot water (7): `hot_water_pump_follow_tado_on_for_1h`, `hot_water_pump_off_when_runtime_finishes`,
+  `hot_water_pump_manual_auto_off_30m`, `hot_water_boost_switch_on`, `hot_water_boost_switch_off`,
+  `hot_water_boost_switch_mirror`, `house_goodnight` (house, not hot water, but added with them)
+- Tado gas (2): `tado_gas_meter_reading_weekly_from_octopus`, `tado_gas_meter_submission_overdue_alert`
+- Health (3): `octopus_energy_gas_rollover_health_daily_check`, `system_backup_stale_daily_check`,
+  `system_watchman_daily_check`
+- EV (4): `ev_ohme_sync_renault_state_of_charge`, `ev_ohme_auto_approve_renault_charge`,
+  `ev_ohme_sync_honda_state_of_charge`, `ev_ohme_auto_approve_honda_charge`
+
+All 12 scheduled/lighting automations except `lighting_front_porch_motion_overnight` carry the
+condition `input_boolean.lighting_automations_paused == off`.
 
 ## Current Script Inventory
-- `lighting_apply_profile_core`
-- `lighting_common_areas`
-- `lighting_bedrooms`
-- `lighting_outside`
-- `lighting_wait_seasonal_offset`
+- `lighting_apply_profile_core` (profile table: day, morning, evening_full, evening, late, night)
+- `lighting_common_areas`, `lighting_evening_set`, `lighting_bedrooms`, `lighting_outside`
+- `lighting_dim_if_on`
+- `lighting_wait_seasonal_offset` (retired 2026-09-15, uncalled; delete after 2026-09-22)
 - `tado_gas_set_manual_baseline`
-- `tado_hot_water_auto`
-- `tado_hot_water_off`
-- `tado_hot_water_boost`
+- `tado_hot_water_auto`, `tado_hot_water_off`, `tado_hot_water_boost`
 
 ## Current Dashboard Inventory
 - Storage dashboards:
@@ -163,13 +189,22 @@ Use these exact IDs when targeting by area.
 - `toilet` -> Toilet
 - `side_hall` -> Side Hall
 - `front_porch` -> Front Porch
-- `ren_s_bedroom` -> Ren's Bedroom
+- `nathaniel_s_bedroom` -> Nathaniel's Bedroom (first floor; formerly Ren's Bedroom, area migrated 2026-09-15)
 - `guest_bedroom` -> Guest Bedroom
 - `david_s_office` -> David's Office
 - `landing` -> Landing
-- `nathaniel_s_bedroom` -> Nathaniel's Bedroom
+- `attic_bedroom` -> Attic Bedroom (attic; formerly Nathaniel's Bedroom, area migrated 2026-09-15)
 - `attic_lounge` -> Attic Lounge
 - `hot_water` -> Utilities
+
+Entity id history (ids are deliberately unchanged so HomeKit/Alexa pairings survive):
+- `light.ren_s_bedroom`, `climate.ren_s_bedroom`, `switch.ren_s_bedroom_child_lock`,
+  `binary_sensor.ren_s_bedroom_window`, `sensor.ren_s_bedroom_*`, `light.rens_bedroom_lamp_*`,
+  `climate.meacocool_mc_series_12000_pro_2` = **Nathaniel's Bedroom** (first floor).
+- `climate.nathaniels_bedroom`, `switch.nathaniels_bedroom_child_lock`,
+  `binary_sensor.nathaniels_bedroom_window`, `sensor.nathaniels_bedroom_*`,
+  `climate.nathaniel_meacocool_mc_series_12000_pro` = **Attic Bedroom**.
+- `media_player.ren_s_bedroom_display` moved to the Dining Room on 2026-09-15.
 
 ## HomeKit Bridge Export Reference
 - Current production light bridge is YAML-managed:
@@ -186,9 +221,10 @@ Use these exact IDs when targeting by area.
     - `light.landing`
     - `light.lounge`
     - `light.main_bedroom`
-    - `light.ren_s_bedroom`
+    - `light.ren_s_bedroom` (Nathaniel's Bedroom Lights)
     - `light.sarahs_office`
     - `light.side_hall`
+    - `input_boolean.hot_water_boost`, `input_boolean.goodnight`, `input_boolean.lighting_automations_paused` (virtual switches, 2026-09-15)
 - Current production climate bridge is YAML-managed:
   - `HA Climate`
   - port `21065`
@@ -201,8 +237,8 @@ Use these exact IDs when targeting by area.
     - `climate.landing`
     - `climate.lounge`
     - `climate.main_bedroom`
-    - `climate.nathaniels_bedroom`
-    - `climate.ren_s_bedroom`
+    - `climate.nathaniels_bedroom` (Attic Bedroom Heating)
+    - `climate.ren_s_bedroom` (Nathaniel's Bedroom Heating)
     - `climate.sarahs_office`
     - `climate.toilet`
     - `water_heater.hot_water`
@@ -210,8 +246,8 @@ Use these exact IDs when targeting by area.
   - `HA Air Conditioning`
   - port `21066`
   - include entities:
-    - `climate.nathaniel_meacocool_mc_series_12000_pro`
-    - `climate.meacocool_mc_series_12000_pro_2`
+    - `climate.nathaniel_meacocool_mc_series_12000_pro` (Attic Bedroom AC)
+    - `climate.meacocool_mc_series_12000_pro_2` (Nathaniel's Bedroom AC)
 - Current production kitchen electric heating bridge is YAML-managed:
   - `HA Kitchen Heating`
   - port `21067`
@@ -221,7 +257,7 @@ Use these exact IDs when targeting by area.
   - room lights -> `Room Lights`
   - Tado thermostats -> `Room Heating`
   - Meaco air conditioners -> `Room AC`
-  - Ecostrad kitchen heater -> `Kitchen Ecostrad Heater`
+  - Ecostrad kitchen heater -> `Kitchen Heating` (renamed from `Kitchen Ecostrad Heater` 2026-09-15)
 - Canonical room-light entities to expose:
   - `light.attic_lounge`
   - `light.davids_office`
@@ -258,7 +294,7 @@ Use these exact IDs when targeting by area.
 - See `docs/homekit_bridge_migration.md` for the rollout order, exclude list, and validation checklist.
 
 ## Alexa Exposure Reference
-- Home Assistant Cloud Alexa exposure is YAML-managed under `cloud.alexa`.
+- Home Assistant Cloud Alexa exposure is YAML-managed under `cloud.alexa` (filter only; the per-entity `entity_config` names were removed 2026-09-15 because they duplicated `customize`).
 - Current Alexa include entities:
   - `light.attic_lounge`
   - `light.davids_office`
@@ -284,7 +320,9 @@ Use these exact IDs when targeting by area.
   - `climate.ren_s_bedroom`
   - `climate.sarahs_office`
   - `climate.toilet`
-  - `water_heater.hot_water`
+  - `water_heater.hot_water` (to be removed once the boost switch has proven itself)
+  - `input_boolean.hot_water_boost`, `input_boolean.goodnight` (2026-09-15)
+  - `climate.ecostrad_klasse_iq`, `climate.nathaniel_meacocool_mc_series_12000_pro`, `climate.meacocool_mc_series_12000_pro_2`, `sensor.left_oven_current_oven_cavity_temperature`, `sensor.right_oven_current_oven_cavity_temperature` (Phase 3V, 2026-09-15; replace the vendor skills)
 - Deliberately excluded from Alexa in the initial pass:
   - media players and TVs
   - Home Connect appliances
@@ -342,9 +380,17 @@ Tracking guidance:
 
 ## Hot Water Pump Runtime
 - The Tado hot water demand automation starts the Meross water pump and `timer.hot_water_pump_runtime` for one hour.
-- `hot_water_pump_off_when_runtime_finishes` turns the pump off when the timer finishes.
+- The timer is declared with `restore: true` (2026-09-15) so a core restart mid-run does not strand the pump.
+- `hot_water_pump_off_when_runtime_finishes` turns the pump off when the timer finishes or is cancelled (both `timer.finished` and `timer.cancelled` events, 2026-09-15).
 - `hot_water_pump_manual_auto_off_30m` still protects manual/physical starts, but does not turn the pump off while `binary_sensor.hot_water_power` is on.
 - Current pump entity is `switch.hot_water_pump`.
+
+## Hot Water Boost Switch (voice-facing)
+- `input_boolean.hot_water_boost` is the family-facing control on Alexa, HomeKit and Assist (Google after Phase 3V).
+- On -> `hot_water_boost_switch_on` runs `script.tado_hot_water_boost` (60 min), unless Tado is already boosting.
+- Off -> `hot_water_boost_switch_off` runs `script.tado_hot_water_auto`, only if a manual overlay is active.
+- `hot_water_boost_switch_mirror` keeps the switch truthful: on when `water_heater.hot_water` is `heat` with `binary_sensor.hot_water_overlay` on, off otherwise (covers boosts started or expired from the Tado app).
+- `input_boolean.goodnight` (momentary, `house_goodnight`) and `input_boolean.lighting_automations_paused` are the other two virtual switches; see the change log 2026-09-15 Phase 3.
 
 ## Tado Hot Water Control
 - Canonical hot water entity:

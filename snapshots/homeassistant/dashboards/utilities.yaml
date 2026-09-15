@@ -257,6 +257,8 @@ views:
         entities:
           - entity: water_heater.hot_water
             name: Tado hot water
+          - entity: input_boolean.hot_water_boost
+            name: Boost switch (voice)
           - entity: sensor.hot_water_tado_mode
             name: Tado mode
           - entity: binary_sensor.hot_water_power

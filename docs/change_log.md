@@ -37,6 +37,474 @@ Implemented by:
 
 ---
 
+## 2026-09-15 - Audit Phase 4: lighting refactor (profile table, wrappers, sun-elevation triggers)
+
+Summary:
+- `script.lighting_apply_profile_core` rewritten around a single profile table (`day`, `morning`,
+  `evening_full`, `evening`, `late`, `night`); one `light.turn_on`/`turn_off` per call using an
+  `area_id` list instead of a per-area loop; `service:` -> `action:`.
+- New wrappers: `script.lighting_evening_set` (common areas + Lounge) and
+  `script.lighting_dim_if_on` (applies a profile only to lights already on).
+- `script.lighting_wait_seasonal_offset` retired (no callers); kept until 2026-09-22 as a rollback aid.
+- Automations: 15 lighting automations -> 12. Removed `lighting_common_evening_sunset_on_seasonal`,
+  `_weekday_morning_0620_presunrise`, `_friday_morning_0650_presunrise`,
+  `lighting_all_lights_off_after_sunrise_seasonal`, `_lounge_dim_2215_sun_thu`, `_dim_2330_fri_sat`,
+  `_off_2300_sun_thu`, `_off_2359_fri_sat`. Added `lighting_evening_set_on_at_dusk` (sun elevation
+  below 4, not rising; `evening_full` before 19:00 else `evening`), `lighting_common_off_after_sunrise`
+  (elevation above 5, rising), `lighting_common_morning_presunrise` (06:20 Mon-Thu / 06:50 Fri via
+  trigger ids), `lighting_evening_set_dim_late` and `lighting_evening_set_off_late` (weeknight /
+  weekend trigger ids). `lighting_evening_dim_1900` and the late dim now use `lighting_dim_if_on`,
+  so they no longer turn rooms back on. Porch automations call `lighting_outside` with a profile.
+  `lighting_front_porch_motion_overnight` pinned to `binary_sensor.hue_outdoor_motion_sensor_1_motion`.
+- Behaviour changes to know about: no seasonal delay anywhere (restart-safe); summer dusk-on after
+  19:00 comes on at 80% instead of 100%; the late dim never lights a room that was off.
+- Registry: the 8 replaced automations' orphaned entity entries deleted.
+
+Files changed:
+- /config/scripts.yaml, /config/automations.yaml
+- snapshots/homeassistant/*, docs/lighting_reusable_components.md (rewritten),
+  docs/smart_home_audit_2026-09-15.md, docs/homeassistant_configuration_reference.md, docs/change_log.md
+
+Details:
+- First push failed `ha core check` ("mapping values are not allowed here", automations.yaml line
+  158: an unquoted description containing "02:00: common"). Both reloads returned 500 and the OLD
+  automations stayed loaded, so nothing was lost; description quoted, second push passed and both
+  reloads returned 200 at sun elevation 4.29 (18:47 BST).
+- The reload cancelled the old dusk automation mid-wait (it would have fired at 18:50); tonight's
+  lights-on came from the new elevation trigger - see the read-back below.
+- Read-back: 12 lighting automations on, 7 lighting scripts, `ha core check` passes, `make verify`
+  no drift.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations (no restart)
+- [x] Manual test run: first real dusk observed - `lighting_evening_set_on_at_dusk` fired at
+  18:49:40 BST at elevation 3.7 (sunset 19:20), evening set + office filament on at 100%.
+  Side finding: `light.battery_charger` (Hue smart plug in the Lounge area, light domain) was
+  switched on with the room, as the old automation had also been doing every evening. Its
+  device was moved from the Lounge area to Utilities so area-targeted schedules skip it.
+- [x] `make verify` - no drift
+
+Backups:
+- Home Assistant backup slug `83336a54` (`pre_phase4_20260915`);
+  `automations.yaml.bak.1789494159`, `scripts.yaml.bak.1789494159`.
+
+Rollback:
+- Restore the two `.bak.1789494159` files, `ha core check`, reload scripts and automations.
+
+Requested by:
+- Project user ("ok onto next phase")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
+## 2026-09-15 - Kitchen Heating (Ecostrad, Tuya) reported `unknown` when on: local Tuya quirk
+
+Summary:
+- Reported by the project user after Phase 3V: "kitchen heating does not seem to be working" by
+  voice. Root cause has two parts, both verified against HA 2026.9.2 / tuya-device-handlers 0.0.27:
+  1. Tuya's product specification for `lgibckbiszegmjlo` declares the `mode` datapoint (dpid 4)
+     as enum ["eco"], while the heater reports comfort/eco/frost. HA logged "Found invalid ENUM
+     value" for months (pre-existing; first seen in the audit log review).
+  2. The library's DefaultHVACModeWrapper claims any `mode` enum, and HA's `climate.hvac_mode`
+     maps its value through a fixed HVAC table; comfort/frost are not in it, so whenever the
+     switch was on the entity reported hvac state `unknown`. Every assistant treats that as a
+     broken thermostat. Kitchen Heating was only added to the Alexa/Google lists today, which is
+     why it surfaced now.
+- Tried first: a quirk extending the enum to comfort/eco/frost. Presets became readable, but the
+  Tuya sharing API rejects writing comfort or frost (ApiRequestException 2008 "value not
+  supported"), and hvac stayed `unknown`. HA cannot change this heater's mode through the cloud
+  API at all.
+- Fix applied: `/config/tuya_quirks/qn_lgibckbiszegmjlo.py` removes dpid 4 (`mode`). HA now derives
+  hvac from the `switch` datapoint (off/heat) and keeps the target temperature. Verified: set heat
+  -> `heat`, set off -> `off`, no warnings. Presets are gone from HA (they were never writable).
+- Operational rule: the heater must be left in COMFORT mode (Tuya/Smart Life app or the unit's
+  panel). It is currently in FROST mode; in that mode "heat" only holds the anti-frost setpoint.
+
+Files changed:
+- /config/tuya_quirks/qn_lgibckbiszegmjlo.py (new; tracked at snapshots/homeassistant/tuya_quirks/)
+- scripts/sync_from_ha.sh (quirk file added to the sync/verify list)
+- docs/smart_home_audit_2026-09-15.md, docs/homeassistant_configuration_reference.md, docs/change_log.md
+
+Details:
+- No restart: quirks under /config/tuya_quirks/ load on a Tuya integration reload (done twice), and
+  the HA Kitchen Heating HomeKit bridge was reloaded afterwards.
+- Side effects of testing: the heater was switched on three times for ~12 s each at a 12 C
+  setpoint in a 21.5 C room (no heating occurred) and its setpoint was briefly set to 18 and
+  restored to 12.
+- Diagnostics evidence is in the scratchpad diagnostics dumps; the device raw status is
+  {"switch": false, "temp_set": 120, "temp_current": 215, "mode": "frost", "lock": false}.
+- Upstream: worth reporting to tuya-device-handlers (spec range) and Home Assistant core
+  (`hvac_mode` should fall back to `switch_only_hvac_mode` when the mode value is unmapped).
+
+Validation:
+- [x] Tuya diagnostics show `quirk: /config/tuya_quirks/qn_lgibckbiszegmjlo.py` and no `mode` datapoint
+- [x] Live test heat/off read-back
+- [x] `make verify` - no drift (quirk file now covered)
+
+Rollback:
+- Delete /config/tuya_quirks/qn_lgibckbiszegmjlo.py and reload the Tuya integration.
+
+Requested by:
+- Project user ("the kitchen heating does not seem to be working")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
+## 2026-09-15 - Audit Phase 3V: voice cutover (Alexa additions, Google exposure) - with a 3-minute cloud outage
+
+Summary:
+- Alexa include list += `climate.ecostrad_klasse_iq` (Kitchen Heating), both Meaco AC climates,
+  and the two oven cavity temperature sensors, so the Tuya/SmartLife/Home Connect skills can be
+  unlinked from Alexa.
+- Google Home exposure: the same family-facing set (12 room lights, 15 climates, 2 oven
+  temperatures, Hot Water Boost, Goodnight = 31 entities) exposed to `cloud.google_assistant`
+  through the exposed-entities API. Google was enabled in HA Cloud but had never exposed anything.
+- Assist += the two oven temperatures. Extra aliases on Kitchen Heating and Goodnight.
+
+INCIDENT (self-inflicted, resolved):
+- The first deploy used a `cloud: google_assistant:` YAML block (the form in the audit's section
+  7.3). Home Assistant 2026.9 no longer accepts that key: `ha core check` passed, but at startup
+  the cloud integration failed with "'google_assistant' is an invalid option for 'cloud'", and
+  because `default_config` depends on `cloud`, `default_config` failed too. Alexa, remote access
+  and cloud TTS were down from 17:06:12 to about 17:09:20 BST (one restart cycle) while the block
+  was removed and core restarted. No automation was affected (31/31 on afterwards); a car was
+  plugged into the Ohme during the window and the EV automations were running normally after.
+- Lesson recorded in the audit: Google Assistant exposure for HA Cloud is UI/API-managed only on
+  this version; `ha core check` does not validate the `cloud` schema, so a YAML change there
+  needs a test restart at a quiet time.
+
+Files changed:
+- /config/configuration.yaml (cloud.alexa filter additions; google block added then removed)
+- .storage/homeassistant.exposed_entities, core.entity_registry (aliases) via WebSocket
+- snapshots/homeassistant/*, docs/*
+
+Details:
+- Two core restarts (the failed one and the fix). Preflight before each: timer idle, pump off,
+  hot water demand off; Ohme went from `unplugged` to `charging`/`plugged_in` during the phase.
+- Read-back: `cloud/status` logged_in, alexa_registered, google_registered, remote connected;
+  31 automations on; `tts.home_assistant_cloud` present; Google exposed list = 31 entities.
+
+Validation:
+- [x] `ha core check` (passed both times; see incident)
+- [x] Restart core
+- [x] Manual read-back (cloud status, exposure list)
+- [x] `make verify` - no drift
+
+Backups:
+- Home Assistant backup slug `d5026c7d` (`pre_phase3v_20260915`);
+  `/homeassistant/configuration.yaml.bak.1789488237`.
+
+Rollback:
+- Alexa additions: remove the five lines from `cloud.alexa.filter.include_entities`, restart.
+- Google: Settings > Voice assistants > Expose, or `homeassistant/expose_entity` with
+  `should_expose: false` for the 31 entities.
+
+Outstanding (project user, app side):
+- Google Home app: link "Home Assistant Cloud by Nabu Casa" (Works with Google), let the 31
+  devices sync, assign rooms, then unlink Philips Hue, Tuya/SmartLife, Meross, Home Connect and
+  LG ThinQ and remove their orphaned devices.
+- Alexa app: "Alexa, discover devices"; confirm Kitchen Heating, both AC units, the two oven
+  temperatures, Hot Water Boost and Goodnight appear once; then unlink Tuya, SmartLife, Meross,
+  Home Connect and LG ThinQ under Skills and delete leftover duplicates.
+- Retest the phrase list in the audit section 9.
+
+Requested by:
+- Project user ("start phase 3v")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
+## 2026-09-15 - Audit Phase 3: virtual voice devices (Hot Water Boost, Goodnight, Lighting Automations Paused)
+
+Summary:
+- Three `input_boolean` helpers that behave identically on Alexa, HomeKit, Google and Assist:
+  `hot_water_boost` (on = 60-minute Tado hot water timer, mirrored from Tado's overlay state),
+  `goodnight` (momentary: common areas, Lounge, front porch and office filament off, then resets),
+  `lighting_automations_paused` (every scheduled lighting automation now checks it).
+- Four new automations: `hot_water_boost_switch_on`, `hot_water_boost_switch_off`,
+  `hot_water_boost_switch_mirror` (template triggers on water heater `heat` + overlay on/off),
+  `house_goodnight`.
+- Condition `input_boolean.lighting_automations_paused == off` added to all 14 scheduled
+  `lighting_*` automations (not the front porch motion automation, not Goodnight).
+- `climate.ecostrad_klasse_iq` renamed "Kitchen Ecostrad Heater" -> "Kitchen Heating" in `customize`
+  to match the Room Heating pattern.
+- Exposure: Alexa include list += `input_boolean.hot_water_boost`, `input_boolean.goodnight`
+  (`water_heater.hot_water` kept for now, to be removed after a week of the switch working);
+  HA Lights HomeKit bridge += all three booleans (shown as switches); Assist += all three with
+  aliases ("hot water", "boost the hot water", "good night").
+- Utilities dashboard Hot Water card += the boost switch row.
+
+Files changed:
+- /config/configuration.yaml (customize, cloud.alexa filter, homekit HA Lights filter, input_boolean)
+- /config/automations.yaml (4 new automations, 14 conditions added)
+- /config/dashboards/utilities.yaml
+- .storage/homeassistant.exposed_entities, core.entity_registry (aliases) via WebSocket
+- snapshots/homeassistant/*, docs/*
+
+Details:
+- One core restart (new `input_boolean` domain and cloud filter change). Preflight: timer idle,
+  pump off, hot water demand off, Ohme unplugged.
+- Read-back: the three helpers exist and are `off`; 31 automations loaded and on; friendly name
+  `Kitchen Heating`; all four HomeKit entries loaded; repairs empty; `ha core check` passes.
+- Live test: `input_boolean.goodnight` turned on at 14:53:29 UTC, `automation.house_goodnight`
+  ran (no lights were on, so no visible change) and the switch reset itself at 14:53:35.
+- NOT live-tested: the hot water boost path (it would start a real 60-minute heat + pump run).
+  Test it when hot water is wanted: turn the switch on, confirm Tado shows a 60-minute timer and
+  `binary_sensor.hot_water_overlay` goes on; turn it off, confirm Tado returns to schedule;
+  start a boost from the Tado app, confirm the switch turns on by itself.
+- Google exposure (audit 7.3) deliberately deferred to Phase 3V so the directly-linked services
+  are unlinked in the same session.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core (restart)
+- [x] Manual test run completed (Goodnight; boost path pending)
+- [x] `make verify` - no drift
+
+Backups:
+- Home Assistant backup slug `06e1c4d5` (`pre_phase3_20260915`).
+- `.bak.1789483637` copies of configuration.yaml, automations.yaml, dashboards/utilities.yaml.
+
+Rollback:
+- Restore the three `.bak.1789483637` files, `ha core check`, restart core; or restore slug `06e1c4d5`.
+
+Requested by:
+- Project user ("proceed with Phase 3")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
+## 2026-09-15 - Audit Phase 2R: room rename (Ren's Bedroom -> Nathaniel's Bedroom, Nathaniel's Bedroom -> Attic Bedroom)
+
+Summary:
+- Ren has moved out. Nathaniel takes the first-floor room; the attic room becomes "Attic Bedroom".
+- Area registry migrated so area ids mean what they say: created `attic_bedroom` (floor Attic),
+  moved the 3 attic devices (Tado valve, Tado zone, Meaco AC) into it, deleted the old
+  `nathaniel_s_bedroom`; created "Nathaniel's Bedroom" (HA reissued the freed id
+  `nathaniel_s_bedroom`, floor First floor), moved the 9 devices from `ren_s_bedroom` into it
+  (Hue room, 2 lamps, lava-lamp plug, dimmer, Tado valve, Tado zone, Meaco AC, Nest Hub), deleted
+  `ren_s_bedroom`. The Nest Hub device was then moved to `dining_room` (Phase 0 decision).
+- Entity ids unchanged (HomeKit and Alexa pairings survive). `customize` friendly names:
+  `light.ren_s_bedroom` -> Nathaniel's Bedroom Lights, `climate.ren_s_bedroom` -> Nathaniel's
+  Bedroom Heating, `climate.meacocool_mc_series_12000_pro_2` -> Nathaniel's Bedroom AC,
+  `climate.nathaniels_bedroom` -> Attic Bedroom Heating,
+  `climate.nathaniel_meacocool_mc_series_12000_pro` -> Attic Bedroom AC.
+- `script.lighting_bedrooms` target areas -> `bedroom`, `nathaniel_s_bedroom`, `attic_bedroom`.
+- Assist aliases added for the five renamed entities.
+- Also in this session: `light.elgato_key_light_air` device moved from "Utilities" to Sarah's Office
+  (Phase 2 manual item, answered by the project user).
+
+Files changed:
+- /config/configuration.yaml (customize), /config/scripts.yaml (lighting_bedrooms)
+- .storage/core.area_registry, core.device_registry, core.entity_registry via WebSocket
+- snapshots/homeassistant/*, docs/homeassistant_configuration_reference.md,
+  docs/homekit_bridge_migration.md, docs/lighting_reusable_components.md,
+  docs/smart_home_audit_2026-09-15.md, docs/change_log.md
+
+Details:
+- No restart. Applied with `homeassistant.reload_core_config` + `homeassistant.update_entity` on the
+  five entities (customize only takes effect on the next state write), `script.reload`, and a reload
+  of the HA Lights / HA Climate / HA Air Conditioning HomeKit entries after the names were live.
+- Read-back: `area_entities('nathaniel_s_bedroom')` lists the Ren-era light/climate/AC ids,
+  `area_entities('attic_bedroom')` lists the two attic climates, `area_entities('ren_s_bedroom')`
+  is empty, `area_name('media_player.ren_s_bedroom_display')` = Dining Room, all five friendly
+  names correct, all four HomeKit entries `loaded`, `ha core check` passes.
+- Tado child entities (child lock, window, temperature, humidity, heating circuit) still carry the
+  Tado zone names until the zones are renamed in the Tado app.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core (core config, scripts, HomeKit entries reloaded)
+- [x] Manual test run completed (template read-backs above)
+- [x] `make verify` - no drift
+- Notes: app-side steps outstanding, see the audit section 10.6 / Phase 2R.
+
+Backups:
+- Home Assistant backup slug `9703b56a` (`pre_phase2r_20260915`), taken before the migration.
+- `.bak.1789481797` copies of configuration.yaml, scripts.yaml, core.area_registry,
+  core.device_registry, core.entity_registry.
+
+Rollback:
+- Restore the three registry `.bak.1789481797` files into `.storage/` and the two YAML backups, then
+  restart core; or restore slug `9703b56a`. Registry-only rollback by hand: repeat the migration
+  with the names swapped back (entity ids never changed).
+
+Requested by:
+- Project user ("lets do Phase 2r")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
+## 2026-09-15 - Audit Phase 2: registry hygiene, Assist exposure trim, configuration.yaml cleanup
+
+Summary:
+- Second implementation phase of `docs/smart_home_audit_2026-09-15.md`.
+- Entity registry: removed 14 orphaned entries left behind by deleted YAML (3 automations, 1 script,
+  1 input_number, 9 `scene.lighting_evening_*`); disabled 10 entities (stale Cast duplicates
+  `media_player.s95qr` and `media_player.lg_webos_tv`, 4 Meross `light.*_dnd`, 4 Meross
+  `switch.*_config_overtemp_enable`); cleared the registry name on `light.lounge` so `customize`
+  is the only naming source.
+- Assist (conversation) exposure trimmed from 192 to 117 entities: un-exposed 70 live entities
+  (26 individual bulbs and Hue zones, 11 Tado child locks, 15 appliance switches, Honda EV
+  switches/sensors/binary sensors, Ohme solar boost, 2 Meross outlets, Ren's 5 personal Hue scenes,
+  3 stale media players); newly exposed the 8 appliance status template sensors with spoken
+  aliases. Aliases also added for Sarah's/David's office lights and heating and Side Hall lights.
+  Nathaniel's-room aliases wait for the Phase 2R rename.
+- Config entries deleted: `google_translate` (TTS; Cloud TTS is the pipeline default) and `met`
+  (already disabled; Met Office is the weather source).
+- `configuration.yaml`: removed the 80-line `cloud.alexa.entity_config` block (names/descriptions
+  duplicated `customize`; Alexa names unchanged, verified `Toilet Heating` etc. after restart);
+  removed `frontend: themes:` (the `themes/` directory did not exist); added recorder exclusions
+  for `device_tracker.unifi_default_*`, `sensor.davids_iphone_*`, `sensor.ipad_*`,
+  `event.dimmer_*` and the six `sensor.sun_next_*` entities.
+
+Files changed:
+- /config/configuration.yaml
+- .storage/core.entity_registry and .storage/homeassistant.exposed_entities via WebSocket
+  (`config/entity_registry/remove|update`, `homeassistant/expose_entity`)
+- .storage/core.config_entries via REST `DELETE /api/config/config_entries/entry/{id}`
+- snapshots/homeassistant/* (re-synced), docs/smart_home_audit_2026-09-15.md,
+  docs/homeassistant_configuration_reference.md, docs/change_log.md
+
+Details:
+- Preflight before restart: timer idle, pump off, Tado hot water demand off, Ohme unplugged.
+- One core restart (recorder and cloud config are not reloadable).
+- Read-back after restart: orphan ids absent from the registry; 10/10 target entities
+  `disabled_by: user`; `light.lounge` registry name `None` and friendly name still `Lounge Lights`;
+  aliases present on `light.side_hall`, `light.davids_office`, `sensor.dryer_time_remaining`;
+  only `tts.home_assistant_cloud` and `weather.home` (Met Office) remain; repairs list empty;
+  27 automations and 33 scenes loaded.
+- Watchman after restart reports 5 missing entities, all expected-unavailable references:
+  `number.utilities_ohme_home_pro_state_of_charge_input` (only exists while a car is plugged in),
+  both Meaco AC climates (offline for winter), and the two Octopus wheel-of-fortune sensors on the
+  Utilities dashboard (`unknown`). Left for manual review.
+- Startup log: one warning that Cast still polls the disabled `media_player.lg_webos_tv`
+  (harmless, integration-side), and two meross_lan "Task exception was never retrieved" traces
+  from MQTT publishes to the two plugs that are off the network.
+- Deferred to manual review (not changed): Elgato light area, UniFi client tracking, the Watchman
+  ignore list, the Utilities dashboard wheel-of-fortune rows.
+
+Validation:
+- [x] `ha core check`
+- [x] Reload scripts/automations or restart core (one restart)
+- [x] Manual test run completed (registry/exposure/alias read-backs above)
+- [x] `make verify` - no drift
+- Notes:
+  - Assist should be spot-checked from the Companion app: "how long is left on the dishwasher",
+    "turn on Daves office lights", and confirm "turn on the dishwasher" is no longer offered.
+
+Backups:
+- Home Assistant backup slug `becb4c48` (`pre_phase2_20260915`) and the Phase 1 slug `666a6dd7`.
+  NOTE: `becb4c48` and the `.bak.1789481091` copies of `core.entity_registry` and
+  `homeassistant.exposed_entities` were taken a few seconds *after* the registry edits were applied
+  (the two steps ran in parallel), so the true pre-Phase-2 registry is in `666a6dd7`.
+- `/homeassistant/configuration.yaml.bak.1789481091` (pre-change, taken before the push).
+
+Rollback:
+- `cp /homeassistant/configuration.yaml.bak.1789481091 /homeassistant/configuration.yaml`, `ha core check`, restart.
+- Registry: re-enable the 10 disabled entities in Settings > Entities; orphaned entries can simply
+  be left deleted (they referenced nothing). Exposure: re-tick in Settings > Voice assistants.
+- Config entries: re-add Google Translate TTS / Met.no from Settings > Integrations if wanted.
+- Or restore backup slug `666a6dd7` (pre-Phase-2 registry) then re-apply Phase 1.
+
+Requested by:
+- Project user ("proceed to phase 2, and keep all these checks to manual steps at the end")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
+## 2026-09-15 - Audit Phase 1: pump timer restore, timer-cancelled handling, Honda sensor, http
+
+Summary:
+- First implementation phase of `docs/smart_home_audit_2026-09-15.md` (reliability fixes).
+- `timer.hot_water_pump_runtime` now has `restore: true`. Before this, a core restart during the
+  one-hour pump run dropped the timer, `timer.finished` never fired, and the pump stayed on until
+  the next Tado demand cycle restarted it.
+- `hot_water_pump_off_when_runtime_finishes` now also triggers on `timer.cancelled`, so cancelling
+  the timer from the Utilities dashboard turns the pump off instead of leaving it running.
+- Disabled `sensor.e_ny1_climate_temperature` (My Honda+) in the entity registry. It is declared
+  as an enum sensor but reports numeric values, which raised one error on every 10-minute
+  coordinator update (781 in the last 5 days of log).
+- Attempted to add `http: ip_ban_enabled / login_attempts_threshold` in YAML. Home Assistant
+  2026.9 manages HTTP settings in `.storage/http` (migrated 2026-08-14) and the YAML block was
+  ignored and raised the repair `http.yaml_still_present_after_migration`. The block was removed
+  again; storage already has `ip_ban_enabled: true` but `login_attempts_threshold: -1`, and the
+  threshold must be set from the UI (no WebSocket write command is exposed). Outstanding.
+
+Files changed:
+- /config/configuration.yaml (timer `restore: true`; `http:` block added then removed, net change is
+  the timer only)
+- /config/automations.yaml (`hot_water_pump_off_when_runtime_finishes` trigger)
+- .storage/core.entity_registry via WebSocket `config/entity_registry/update` (one entity disabled)
+- snapshots/homeassistant/* (re-synced), docs/smart_home_audit_2026-09-15.md (Phase 1 status),
+  docs/homeassistant_configuration_reference.md, docs/change_log.md
+
+Details:
+- Preflight before each restart: timer idle, pump off, Tado hot water demand off, Ohme unplugged.
+- Core was restarted twice: once after the YAML push (also applied the first `http` attempt) and
+  once after removing the `http` block to clear the repair. Repairs list is empty afterwards.
+- Read-back after reload: `timer.hot_water_pump_runtime` attributes show `restore: true`;
+  `/api/config/automation/config/hot_water_pump_off_when_runtime_finishes` shows
+  `event_type: [timer.finished, timer.cancelled]`; `sensor.e_ny1_climate_temperature` returns 404.
+- Observed during preflight, not changed: Meross plugs "Hue Bridge Power" (192.168.1.251) and
+  "Sarah's office lights" (192.168.1.37) do not answer ping and their UniFi trackers are away, so
+  they are physically off or off Wi-Fi; `light.guest_room_shelf_light` and
+  `light.hue_filament_bulb_attic_2` are unavailable in Hue; the Elgato at 192.168.1.112 answered.
+  These are the Phase 1 step 4 hardware items and need hands-on checks.
+- Renault: the re-auth repair that was open on 2026-09-15 morning is no longer present, but the
+  integration still logs intermittent `err.func.wired.unauthorized` on individual endpoints while
+  battery and location keep updating. Watch item; if the repair returns, complete it.
+- Renault/HACS/oven-unit repairs were already cleared by a core restart at ~14:06 BST that was not
+  part of this session.
+
+Validation:
+- [x] `ha core check` (after each push)
+- [x] Reload scripts/automations or restart core (timer.reload, automation.reload, then two restarts)
+- [x] Manual test run completed (read-back of timer attributes, automation trigger config, entity 404)
+- [x] `make verify` - no drift
+- Notes:
+  - `login_attempts_threshold` was then set to 10 by the project user in the UI HTTP settings
+    (chosen over 5 to allow for mistyping; the UniFi gateway's IPS/IDS is the other layer). HA
+    applied it as a pending trial config with a 15-minute revert; it was promoted to the stable
+    config via WebSocket `http/config/promote` and read back: `ip_ban_enabled: true`,
+    `login_attempts_threshold: 10`, no pending config.
+  - Whether `sensor.e_ny1_climate_temperature` being disabled stops the My Honda+ listener errors
+    needs a 30-minute look at the log after the restart.
+
+Backups:
+- Home Assistant backup slug `666a6dd7` (`pre_phase1_20260915`, created 2026-09-15 13:42 UTC).
+- `/homeassistant/configuration.yaml.bak.1789479665`, `/homeassistant/automations.yaml.bak.1789479665`.
+- Older ad-hoc `.bak.*` files on the server (epochs 1779905655 through 1788438272, all older than
+  7 days) were NOT cleaned up in this session; they are listed for explicit cleanup later.
+
+Rollback:
+- `cp /homeassistant/configuration.yaml.bak.1789479665 /homeassistant/configuration.yaml`
+- `cp /homeassistant/automations.yaml.bak.1789479665 /homeassistant/automations.yaml`
+- `ha core check`, then restart core.
+- Re-enable `sensor.e_ny1_climate_temperature` in Settings > Entities.
+- Or restore backup slug `666a6dd7`.
+
+Requested by:
+- Project user ("Lets implement phase 1")
+
+Implemented by:
+- Claude Code (Fable 5.1)
+
+---
+
 ## 2026-09-03 - Fix EV claim gate deadlock and the never-retried pending session
 
 Summary:

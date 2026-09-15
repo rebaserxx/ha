@@ -10,7 +10,7 @@ The export model is intentionally simple:
 - Lighting: expose one room-level control per room, named `Room Lights`
 - Tado climate: expose one room-level thermostat per room, named `Room Heating`
 - Air conditioning: expose one Meaco climate control per room, named `Room AC`
-- Kitchen electric heating: expose the Ecostrad heater separately, named `Kitchen Ecostrad Heater`
+- Kitchen electric heating: expose the Ecostrad heater separately, named `Kitchen Heating` (was `Kitchen Ecostrad Heater` until 2026-09-15)
 - Do not expose individual bulbs, Tado helper entities, or appliance helper entities
 
 ## Bridge Layout
@@ -51,11 +51,11 @@ Include only these room-level light entities:
 - `light.landing` -> `Landing Lights`
 - `light.lounge` -> `Lounge Lights`
 - `light.main_bedroom` -> `Main Bedroom Lights`
-- `light.ren_s_bedroom` -> `Ren's Bedroom Lights`
+- `light.ren_s_bedroom` -> `Nathaniel's Bedroom Lights` (renamed 2026-09-15; was Ren's Bedroom)
 - `light.sarahs_office` -> `Sarah's Office Lights`
 - `light.side_hall` -> `Side Hall Lights`
 
-`HA Lights` now includes this full canonical room-light set in YAML on port `21064`.
+`HA Lights` now includes this full canonical room-light set in YAML on port `21064`, plus `light.elgato_key_light_air` and, since 2026-09-15, the three virtual switches `input_boolean.hot_water_boost`, `input_boolean.goodnight` and `input_boolean.lighting_automations_paused` (HomeKit presents them as switches).
 
 Do not include these individual or non-canonical lights:
 - `light.dining_room_ceiling`
@@ -97,8 +97,8 @@ Include only these Tado room-level climate entities plus hot water:
 - `climate.landing` -> `Landing Heating`
 - `climate.lounge` -> `Lounge Heating`
 - `climate.main_bedroom` -> `Main Bedroom Heating`
-- `climate.nathaniels_bedroom` -> `Nathaniel's Bedroom Heating`
-- `climate.ren_s_bedroom` -> `Ren's Bedroom Heating`
+- `climate.nathaniels_bedroom` -> `Attic Bedroom Heating` (renamed 2026-09-15; was Nathaniel's Bedroom)
+- `climate.ren_s_bedroom` -> `Nathaniel's Bedroom Heating` (renamed 2026-09-15; was Ren's Bedroom)
 - `climate.sarahs_office` -> `Sarah's Office Heating`
 - `climate.toilet` -> `Toilet Heating`
 - `water_heater.hot_water` -> `Hot Water`
@@ -114,8 +114,8 @@ Hot water note:
 
 Include only these room AC climate entities:
 
-- `climate.nathaniel_meacocool_mc_series_12000_pro` -> `Nathaniel's Bedroom AC`
-- `climate.meacocool_mc_series_12000_pro_2` -> `Ren's Bedroom AC`
+- `climate.nathaniel_meacocool_mc_series_12000_pro` -> `Attic Bedroom AC` (renamed 2026-09-15)
+- `climate.meacocool_mc_series_12000_pro_2` -> `Nathaniel's Bedroom AC` (renamed 2026-09-15)
 
 `HA Air Conditioning` includes this set in YAML on port `21066`.
 
@@ -127,7 +127,7 @@ HomeKit presentation note:
 
 Include only this kitchen electric heater climate entity:
 
-- `climate.ecostrad_klasse_iq` -> `Kitchen Ecostrad Heater`
+- `climate.ecostrad_klasse_iq` -> `Kitchen Heating`
 
 `HA Kitchen Heating` includes this set in YAML on port `21067`.
 

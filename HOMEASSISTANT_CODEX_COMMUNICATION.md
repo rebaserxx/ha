@@ -46,7 +46,9 @@ This document defines how Codex should communicate with Home Assistant in future
 
 ## Energy Dashboard Conventions
 - Octopus Energy should use external statistic IDs (`octopus_energy:...`) where required.
-- Device consumption example: `sensor.ohme_home_pro_energy`.
+- Device consumption example: `sensor.utilities_ohme_home_pro_charger_energy` (Integral helper over
+  `sensor.ohme_home_pro_power`; the Ohme integration's own `sensor.ohme_home_pro_energy` was removed
+  upstream (core PR #174664) - see `docs/homeassistant_configuration_reference.md` "Energy Dashboard").
 - Water consumption example: `sensor.water_meter_latest_reading`.
 - After writing prefs, verify via `energy/get_prefs`.
 

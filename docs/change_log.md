@@ -37,6 +37,68 @@ Implemented by:
 
 ---
 
+## 2026-09-15 - Restore Energy dashboard EV device breakdown (Ohme Integral helper)
+
+Summary:
+- The Energy dashboard's individual electricity device breakdown had been empty since 2026-08-14.
+  Its only device, `sensor.ohme_home_pro_energy`, was removed from the Ohme integration upstream
+  (home-assistant/core PR #174664, merged 2026-07-13, breaking change) and was left as a restored,
+  permanently `unavailable` registry entry. Upstream's stated reason: it estimated energy in the car
+  battery rather than charger consumption; our history confirms it (2026-08-07 Ohme 132 kWh vs grid 83 kWh).
+- Replaced it with a UI Integral helper over the still-working `sensor.ohme_home_pro_power`.
+- Octopus `completed_dispatches[].charge_in_kwh` was evaluated and rejected as the source (~3-day rolling
+  attribute, Octopus-scheduled slots only, not a statistic); it agreed with measured power to within
+  ~1.5 kWh/day on 2026-09-13..15.
+
+Files changed:
+- /config/.storage/core.config_entries (new `integration` config entry `01M2K818N2TGW05MNJZ2PAA2S4`)
+- /config/.storage/energy (via `energy/save_prefs`)
+- /config/dashboards/utilities.yaml
+- snapshots/homeassistant/dashboards/utilities.yaml
+- HOMEASSISTANT_CODEX_COMMUNICATION.md, docs/homeassistant_configuration_reference.md, docs/change_log.md
+
+Details:
+- New entity `sensor.utilities_ohme_home_pro_charger_energy` ("Ohme Home Pro Charger Energy"):
+  source `sensor.ohme_home_pro_power`, method `left`, round 3, unit_time `h`, max_sub_interval 00:01:00.
+  Read back: `kWh`, `device_class: energy`, `state_class: total`, state `0.000` (charger idle).
+- Energy prefs `device_consumption`: `sensor.ohme_home_pro_energy` -> `sensor.utilities_ohme_home_pro_charger_energy`.
+  Grid, gas and water entries unchanged (verified via `energy/get_prefs`).
+- Utilities dashboard EV Charging card: row `sensor.ohme_home_pro_energy` / "Ohme energy" ->
+  `sensor.utilities_ohme_home_pro_charger_energy` / "Ohme charger energy".
+- Old `sensor.ohme_home_pro_energy` long-term statistics (to 2026-08-14 21:00 UTC) left in place.
+- NOT done: removing the orphaned registry entries `sensor.ohme_home_pro_energy` and
+  `switch.utilities_ohme_home_pro_solar_boost` (both `restored: true`, no longer provided by the
+  integration) - deferred for user confirmation. `sensor.ohme_home_pro_energy` also remains in
+  Watchman's `ignored_items`; harmless, tidy up if the entity is removed.
+
+Validation:
+- [x] `ha core check` (after dashboard edit)
+- [x] `energy/get_prefs` read-back
+- [x] Helper state/attributes read back via REST
+- [x] `make sync-ha` + `make verify` (no drift)
+- Notes:
+  - YAML dashboards pick up file changes on browser refresh; no reload needed.
+  - The breakdown has no backfill; device data starts 2026-09-15 19:17 UTC.
+
+Backups:
+- HA backup `pre_ohme_energy_helper_20260915` (slug `98218c1b`)
+- /config/.storage/energy.bak.1789499864
+- /config/dashboards/utilities.yaml.bak.1789499873
+
+Rollback:
+1. Settings -> Devices & services -> Helpers: delete "Ohme Home Pro Charger Energy".
+2. `energy/save_prefs` with `device_consumption: [{"stat_consumption": "sensor.ohme_home_pro_energy"}]`
+   (or restore `/config/.storage/energy.bak.1789499864` with core stopped).
+3. `cp /config/dashboards/utilities.yaml.bak.1789499873 /config/dashboards/utilities.yaml`, then `make sync-ha`.
+
+Requested by:
+- Project user
+
+Implemented by:
+- Claude Code
+
+---
+
 ## 2026-09-15 - Audit Phase 4: lighting refactor (profile table, wrappers, sun-elevation triggers)
 
 Summary:

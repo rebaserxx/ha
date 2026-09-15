@@ -412,6 +412,26 @@ Operational note:
 - The generic Home Assistant `water_heater` representation does not match the Tado app model exactly.
 - Tado’s own HomeKit support does not support hot water control, so Apple Home may not present this entity in a useful way even when exposed through HA.
 
+## Energy Dashboard
+- Grid: `octopus_energy:electricity_16l0037350_1100021054904_previous_accumulative_consumption` (+ `_cost`)
+- Gas: `octopus_energy:gas_e6s10414361656_2215950002_previous_accumulative_consumption_kwh` (+ `_cost`)
+- Water: `sensor.water_meter_latest_reading`
+- Individual electricity devices (only one; no other device-level power metering exists):
+  - `sensor.utilities_ohme_home_pro_charger_energy` - UI Integral (Riemann sum) helper, added 2026-09-15
+    - source `sensor.ohme_home_pro_power` (kW), method `left`, unit time `h`, round 3,
+      `max_sub_interval` 1 minute; attached to the Ohme device, hence the `utilities_` prefix
+    - measured charger draw, so it covers every session (smart, boost, `max_charge`); it cannot count
+      energy while HA is down or the Ohme cloud is unreachable
+- Why not the Ohme integration's energy sensor: `sensor.ohme_home_pro_energy` was removed upstream
+  (home-assistant/core PR #174664, merged 2026-07-13, breaking change). It reported an estimate of
+  energy in the car battery, not charger consumption - its last recorded day totals exceeded whole-house
+  grid import (2026-08-07: 132 kWh vs 83 kWh). Its long-term statistics stop at 2026-08-14 21:00 UTC and
+  were left in place; they are no longer referenced by the Energy dashboard.
+- Why not Octopus: `binary_sensor.octopus_energy_00000000_0009_4000_8020_000000016ba7_intelligent_dispatching`
+  carries `completed_dispatches[].charge_in_kwh` (what the Octopus app shows), but only as a ~3-day rolling
+  attribute list, only for Octopus-scheduled slots, and not as a kWh statistic. On 2026-09-13/14 it read
+  19.09 / 38.64 kWh against 17.56 / 38.55 kWh measured by the helper's source - a useful cross-check only.
+
 ## Octopus Gas Rollover Monitoring
 - Automation: `octopus_energy_gas_rollover_health_daily_check`
 - Schedule: daily at `23:45` (moved from `19:00` on 2026-07-16 — previous-day data typically arrives 19:10–23:43, so the check now usually runs after it lands)

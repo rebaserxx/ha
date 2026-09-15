@@ -101,8 +101,8 @@ views:
             name: Ohme power
           - entity: sensor.ohme_home_pro_current
             name: Ohme current
-          - entity: sensor.ohme_home_pro_energy
-            name: Ohme energy
+          - entity: sensor.utilities_ohme_home_pro_charger_energy
+            name: Ohme charger energy
           - entity: sensor.ohme_home_pro_vehicle_battery
             name: Ohme vehicle battery
           - entity: sensor.ohme_home_pro_charge_slots
